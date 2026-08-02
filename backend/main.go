@@ -35,31 +35,24 @@ func main() {
 	})
 
 	stockSvc := services.NewStockService()
-
-	harga, err := stockSvc.GetStockPrice("BBRI")
-	if err != nil {
-		fmt.Println("Error saham:", err)
-	} else {
-		fmt.Println("Harga BBRI saat ini: Rp", harga)
-	}
-
-	harga2, _ := stockSvc.GetStockPrice("BBRI")
-	fmt.Println("Harga BBRI pemanggilan kedua: Rp", harga2)
+	goldSvc := services.NewGoldService()
 
 	api := &handlers.APIHandler{
-		Store: store,
+		Store:    store,
+		StockSvc: stockSvc,
+		GoldSvc:  goldSvc,
 	}
 
 	mux.HandleFunc("/api/expenses", api.GetExpenses)
 	mux.HandleFunc("/api/expenses/add", api.AddExpense)
 	mux.HandleFunc("/api/portfolio", api.GetPortfolio)
 	mux.HandleFunc("/api/portfolio/update", api.UpdatePortfolio)
+	mux.HandleFunc("/api/analytics", api.GetAnalytics)
 
 	port := ":8080"
 	fmt.Printf("Server berhasil berjalan di http://localhost%s\n", port)
 
-	err = http.ListenAndServe(port, mux)
-	if err != nil {
+	if err := http.ListenAndServe(port, mux); err != nil {
 		log.Fatalf("Server berhenti karena error: %v", err)
 	}
 }
