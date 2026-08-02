@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"os"
 	"sync"
 )
 
@@ -41,7 +42,16 @@ func (sm *StorageManager) GetExpenses() ([]Transaction, error) {
 	sm.expenseMutex.Lock()
 	defer sm.expenseMutex.Unlock()
 
-	return LoadTransactions(sm.expenseFile)
+	txs, err := LoadTransactions(sm.expenseFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []Transaction{}, nil
+		}
+
+		return nil, err
+	}
+
+	return txs, nil
 }
 
 func (sm *StorageManager) AddIncome(tx Transaction) error {
@@ -63,7 +73,16 @@ func (sm *StorageManager) GetIncomes() ([]Transaction, error) {
 	sm.incomeMutex.Lock()
 	defer sm.incomeMutex.Unlock()
 
-	return LoadTransactions(sm.incomeFile)
+	txs, err := LoadTransactions(sm.incomeFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []Transaction{}, nil
+		}
+
+		return nil, err
+	}
+
+	return txs, nil
 }
 
 func (sm *StorageManager) UpdatePortfolio(port *Portfolio) error {
@@ -78,7 +97,16 @@ func (sm *StorageManager) GetPortfolio() (*Portfolio, error) {
 	sm.portfolioMutex.Lock()
 	defer sm.portfolioMutex.Unlock()
 
-	return LoadPortfolio(sm.portfolioFile)
+	port, err := LoadPortfolio(sm.portfolioFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &Portfolio{}, nil
+		}
+
+		return nil, err
+	}
+
+	return port, nil
 }
 
 func (sm *StorageManager) BackupAllFiles() error {

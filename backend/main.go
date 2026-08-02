@@ -1,6 +1,7 @@
 package main
 
 import (
+	"finflow-wealthboard/handlers"
 	"finflow-wealthboard/storage"
 	"fmt"
 	"log"
@@ -31,6 +32,15 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status": "ok", "message": "API FinFlow Wealthboard berjalan lancar!"}`))
 	})
+
+	api := &handlers.APIHandler{
+		Store: store,
+	}
+
+	mux.HandleFunc("/api/expenses", api.GetExpenses)
+	mux.HandleFunc("/api/expenses/add", api.AddExpense)
+	mux.HandleFunc("/api/portfolio", api.GetPortfolio)
+	mux.HandleFunc("/api/portfolio/update", api.UpdatePortfolio)
 
 	port := ":8080"
 	fmt.Printf("Server berhasil berjalan di http://localhost%s\n", port)
