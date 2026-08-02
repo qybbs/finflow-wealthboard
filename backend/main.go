@@ -2,6 +2,7 @@ package main
 
 import (
 	"finflow-wealthboard/handlers"
+	"finflow-wealthboard/services"
 	"finflow-wealthboard/storage"
 	"fmt"
 	"log"
@@ -33,6 +34,18 @@ func main() {
 		w.Write([]byte(`{"status": "ok", "message": "API FinFlow Wealthboard berjalan lancar!"}`))
 	})
 
+	stockSvc := services.NewStockService()
+
+	harga, err := stockSvc.GetStockPrice("BBRI")
+	if err != nil {
+		fmt.Println("Error saham:", err)
+	} else {
+		fmt.Println("Harga BBRI saat ini: Rp", harga)
+	}
+
+	harga2, _ := stockSvc.GetStockPrice("BBRI")
+	fmt.Println("Harga BBRI pemanggilan kedua: Rp", harga2)
+
 	api := &handlers.APIHandler{
 		Store: store,
 	}
@@ -45,7 +58,7 @@ func main() {
 	port := ":8080"
 	fmt.Printf("Server berhasil berjalan di http://localhost%s\n", port)
 
-	err := http.ListenAndServe(port, mux)
+	err = http.ListenAndServe(port, mux)
 	if err != nil {
 		log.Fatalf("Server berhenti karena error: %v", err)
 	}
