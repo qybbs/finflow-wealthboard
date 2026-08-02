@@ -39,3 +39,9 @@ type Portfolio struct {
 	Assets			[]Asset `json:"assets"`
 	JournalEntries 	[]JournalEntry `json:"journal_entries"`
 }
+
+type Budget struct {
+	Category string  `json:"category"`
+	Limit    float64 `json:"limit"`
+	Interval string  `json:"interval"` // "WEEKLY" | "MONTHLY"
+}

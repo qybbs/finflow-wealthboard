@@ -14,6 +14,7 @@ func main() {
 		"../data/income.csv",
 		"../data/expense.csv",
 		"../data/portfolio.json",
+		"../data/budget.json",
 	)
 
 	fmt.Println("Memulai FinFlow Wealthboard...")
@@ -44,10 +45,14 @@ func main() {
 	}
 
 	mux.HandleFunc("/api/expenses", api.GetExpenses)
+	mux.HandleFunc("/api/incomes", api.GetIncomes)
 	mux.HandleFunc("/api/expenses/add", api.AddExpense)
 	mux.HandleFunc("/api/portfolio", api.GetPortfolio)
 	mux.HandleFunc("/api/portfolio/update", api.UpdatePortfolio)
 	mux.HandleFunc("/api/analytics", api.GetAnalytics)
+	mux.HandleFunc("/api/accounts", api.GetAccounts)
+	mux.HandleFunc("/api/budgets", api.GetBudgets)
+	mux.HandleFunc("/api/budgets/update", api.UpdateBudgets)
 
 	port := ":8080"
 	fmt.Printf("Server berhasil berjalan di http://localhost%s\n", port)

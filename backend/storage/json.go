@@ -28,3 +28,27 @@ func SavePortfolio(filepath string, portfolio *Portfolio) error {
 
 	return os.WriteFile(filepath, data, 0644)
 }
+
+func LoadBudgets(filepath string) ([]Budget, error) {
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	var budgets []Budget
+	err = json.Unmarshal(data, &budgets)
+	if err != nil {
+		return nil, err
+	}
+
+	return budgets, nil
+}
+
+func SaveBudgets(filepath string, budgets []Budget) error {
+	data, err := json.MarshalIndent(budgets, "", " ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filepath, data, 0644)
+}
