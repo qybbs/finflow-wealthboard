@@ -1,7 +1,7 @@
 package storage
 
 type Transaction struct {
-	ID          string     `json:"id"`
+	ID          string  `json:"id"`
 	Date        string  `json:"date"` // YYYY-MM-DD
 	Type        string  `json:"type"` // "INCOME" | "EXPENSE" | "TRANSFER"
 	Category    string  `json:"category"`
@@ -11,7 +11,7 @@ type Transaction struct {
 }
 
 type Asset struct {
-	ID             string     `json:"id"`
+	ID             string  `json:"id"`
 	Type           string  `json:"type"` // "SAHAM" | "REKSA_DANA" | "EMAS"
 	Code           string  `json:"code"` // Ticker (e.g., BBCA, GOTO)
 	Quantity       float64 `json:"quantity"` // Jumlah lembar/unit
@@ -24,7 +24,7 @@ type Asset struct {
 }
 
 type JournalEntry struct {
-	ID        string     `json:"id"`
+	ID        string  `json:"id"`
 	Date      string  `json:"date"` // YYYY-MM-DD
 	AssetID   int     `json:"asset_id"` // Relasi ke tabel Asset
 	TransactionID int `json:"transaction_id"` // Relasi ke tabel Transaction

@@ -10,7 +10,7 @@ type StorageManager struct {
 	portfolioMutex	sync.Mutex
 
 	incomeFile		string
-	expenseFile	string
+	expenseFile		string
 	portfolioFile	string
 }
 
