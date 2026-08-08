@@ -28,15 +28,31 @@
   let editingValue = '';
   
   // New Inline Row State
-  let newInlineTx = {
+  let newInlineIncome = {
       date: new Date().toISOString().split('T')[0],
-      method: '',
-      category: '',
-      type: 'EXPENSE',
-      amount: ''
+      method: '', category: '', type: 'INCOME', amount: '', description: ''
+  };
+  let newInlineExpense = {
+      date: new Date().toISOString().split('T')[0],
+      method: '', category: '', type: 'EXPENSE', amount: '', description: ''
   };
 
   let expDonutChart = null;
+
+  // Cashflow Charts
+  let cfSavingsCanvas;
+  let cfSavingsChart = null;
+  let cfIncDonutCanvas;
+  let cfIncDonutChart = null;
+  let cfExpDonutCanvas;
+  let cfExpDonutChart = null;
+
+  const categoryColors = ['blue', 'green', 'yellow', 'red', 'purple', 'pink', 'indigo'];
+  function getCategoryColor(cat) {
+      if (!cat) return 'default';
+      const hash = cat.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      return categoryColors[hash % categoryColors.length];
+  }
   
   // Forms
   let txType = 'EXPENSE';
@@ -189,35 +205,49 @@
       } catch (err) {}
   }
 
-  async function submitInlineTransaction() {
-      if (!newInlineTx.category || !newInlineTx.amount || !newInlineTx.method) return;
+  async function submitInlineTx(inlineTxObj, resetFunc) {
+      if (!inlineTxObj.category || !inlineTxObj.amount || !inlineTxObj.method) return;
       const newTx = {
           id: "tx_" + Date.now(),
-          date: newInlineTx.date,
-          type: newInlineTx.type,
-          category: newInlineTx.category,
-          amount: parseFloat(newInlineTx.amount),
-          description: "",
-          method: newInlineTx.method.toUpperCase()
+          date: inlineTxObj.date,
+          type: inlineTxObj.type,
+          category: inlineTxObj.category,
+          amount: parseFloat(inlineTxObj.amount),
+          description: inlineTxObj.description || "",
+          method: inlineTxObj.method.toUpperCase()
       };
       try {
-          const endpoint = newInlineTx.type === 'INCOME' ? '/api/incomes/add' : '/api/expenses/add';
+          const endpoint = newTx.type === 'INCOME' ? '/api/incomes/add' : '/api/expenses/add';
           const res = await fetch(endpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(newTx)
           });
           if (res.ok) {
-              newInlineTx.category = ''; newInlineTx.amount = ''; newInlineTx.method = '';
+              resetFunc();
               await fetchAllData();
           }
       } catch (err) {}
   }
 
-  function handleInlineNewKeydown(e) {
-      if (e.key === 'Enter') {
-          submitInlineTransaction();
-      }
+  function submitInlineIncome() {
+      submitInlineTx(newInlineIncome, () => {
+          newInlineIncome.category = ''; newInlineIncome.amount = ''; newInlineIncome.method = ''; newInlineIncome.description = '';
+      });
+  }
+
+  function submitInlineExpense() {
+      submitInlineTx(newInlineExpense, () => {
+          newInlineExpense.category = ''; newInlineExpense.amount = ''; newInlineExpense.method = ''; newInlineExpense.description = '';
+      });
+  }
+
+  function handleInlineNewIncomeKeydown(e) {
+      if (e.key === 'Enter') submitInlineIncome();
+  }
+
+  function handleInlineNewExpenseKeydown(e) {
+      if (e.key === 'Enter') submitInlineExpense();
   }
 
   async function submitPortfolioTx() {
@@ -300,9 +330,50 @@
       await tick();
       if (tab === 'dashboard') {
           renderDashboardCharts();
+      } else if (tab === 'cashflow') {
+          renderCashflowCharts();
       } else if (tab === 'portfolio') {
           renderPortfolioChart();
       }
+  }
+
+  function renderCashflowCharts() {
+      if(!cfSavingsCanvas || !cfIncDonutCanvas || !cfExpDonutCanvas) return;
+
+      if(cfSavingsChart) cfSavingsChart.destroy();
+      cfSavingsChart = new Chart(cfSavingsCanvas, {
+          type: 'line',
+          data: {
+              labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+              datasets: [{
+                  label: 'Net Savings (Rp)',
+                  data: monthlyData.map(d => d.net),
+                  borderColor: '#38bdf8',
+                  backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                  fill: true,
+                  tension: 0.4
+              }]
+          },
+          options: { plugins: { legend: { labels: { color: 'white' } } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } }
+      });
+
+      let incMap = {};
+      incomes.forEach(i => incMap[i.category] = (incMap[i.category] || 0) + i.amount);
+      if(cfIncDonutChart) cfIncDonutChart.destroy();
+      cfIncDonutChart = new Chart(cfIncDonutCanvas, {
+          type: 'doughnut',
+          data: { labels: Object.keys(incMap).length > 0 ? Object.keys(incMap) : ['No Data'], datasets: [{ data: Object.keys(incMap).length > 0 ? Object.values(incMap) : [1], backgroundColor: ['#34d399', '#10b981', '#059669'], borderWidth: 0 }] },
+          options: { plugins: { legend: { display: false } }, cutout: '70%' }
+      });
+
+      let expMap = {};
+      expenses.forEach(e => expMap[e.category] = (expMap[e.category] || 0) + e.amount);
+      if(cfExpDonutChart) cfExpDonutChart.destroy();
+      cfExpDonutChart = new Chart(cfExpDonutCanvas, {
+          type: 'doughnut',
+          data: { labels: Object.keys(expMap).length > 0 ? Object.keys(expMap) : ['No Data'], datasets: [{ data: Object.keys(expMap).length > 0 ? Object.values(expMap) : [1], backgroundColor: ['#f87171', '#ef4444', '#dc2626', '#b91c1c'], borderWidth: 0 }] },
+          options: { plugins: { legend: { display: false } }, cutout: '70%' }
+      });
   }
 
   function renderPortfolioChart() {
@@ -434,152 +505,214 @@
        </div>
 
     {:else if activeTab === 'cashflow'}
-       <div class="row">
-           <!-- LEFT COLUMN -->
-           <div class="col flex-1">
-               <div class="card glass-panel">
-                   <h2>Saldo Rekening</h2>
-                   <table class="minimal-table">
-                       <tbody>
-                           {#each accountsData as acc}
-                           <tr>
-                               <td>{acc.name}</td>
-                               <td class="amount" style="color: {acc.balance >= 0 ? '#38bdf8' : '#f87171'}">
-                                   Rp {acc.balance.toLocaleString('id-ID')}
-                               </td>
-                           </tr>
-                           {/each}
-                       </tbody>
-                   </table>
+       <div class="vertical-stack">
+           <!-- 1. Chart Overview -->
+           <div class="row-charts">
+               <div class="card glass-panel chart-50">
+                   <h2>Savings Trend (2026)</h2>
+                   <canvas bind:this={cfSavingsCanvas}></canvas>
                </div>
-               
-               <div class="card glass-panel" style="margin-top: 20px;">
-                   <div style="display: flex; justify-content: space-between; align-items: center;">
-                       <h2>Anggaran (Budget)</h2>
-                   </div>
-                   <!-- Set budget inline form -->
-                   <div class="budget-form">
-                       <input type="text" bind:value={newBudgetCategory} placeholder="Kategori" />
-                       <input type="number" bind:value={newBudgetLimit} placeholder="Limit (Rp)" />
-                       <select bind:value={newBudgetInterval}>
-                           <option value="WEEKLY">Mingguan</option>
-                           <option value="MONTHLY">Bulanan</option>
-                       </select>
-                       <button class="btn-small" on:click={submitBudget}>Set</button>
-                   </div>
-                   
-                   {#each budgetsData as b}
-                   <div class="budget-item">
-                       <div class="budget-head">
-                           <strong>{b.category}</strong> <span class="tag">{b.interval}</span>
-                       </div>
-                       <div class="budget-bar-bg">
-                           <!-- Math to cap at 100% -->
-                           <div class="budget-bar-fill" 
-                                style="width: {Math.min((b.spent / b.limit) * 100, 100)}%; 
-                                       background-color: {(b.spent / b.limit) > 0.9 ? '#ef4444' : (b.spent / b.limit) > 0.7 ? '#facc15' : '#10b981'}">
-                           </div>
-                       </div>
-                       <div class="budget-details">
-                           <span>Spent: Rp {b.spent.toLocaleString('id-ID')}</span>
-                           <span>Rem: Rp {b.remaining.toLocaleString('id-ID')}</span>
+               <div class="card glass-panel chart-25 center-content">
+                   <h2>Income Breakdown</h2>
+                   <div class="donut-wrapper"><canvas bind:this={cfIncDonutCanvas}></canvas></div>
+               </div>
+               <div class="card glass-panel chart-25 center-content">
+                   <h2>Expense Breakdown</h2>
+                   <div class="donut-wrapper"><canvas bind:this={cfExpDonutCanvas}></canvas></div>
+               </div>
+           </div>
+
+           <!-- 2. Total Saving -->
+           <div class="card glass-panel" style="margin-top: 20px;">
+               <h2>Total Saving (Monthly)</h2>
+               <div class="grid-12" style="margin-top: 15px;">
+                   {#each monthlyData as data}
+                   <div class="month-card glass-panel">
+                       <h4>Bulan {data.month}</h4>
+                       <div class="stat"><span class="text-green">In:</span> Rp {data.income.toLocaleString('id-ID')}</div>
+                       <div class="stat"><span class="text-red">Out:</span> Rp {data.expense.toLocaleString('id-ID')}</div>
+                       <div class="stat-net" style="color: {data.net >= 0 ? '#34d399' : '#f87171'}">
+                           Net: Rp {data.net.toLocaleString('id-ID')}
                        </div>
                    </div>
                    {/each}
                </div>
            </div>
-           
-           <!-- RIGHT COLUMN -->
-           <div class="col flex-2">
-               <div class="card glass-panel">
-                   <h2>Tambah Transaksi Cepat</h2>
-                   <div style="margin-bottom: 10px; font-size: 0.9rem;">
-                       <label style="margin-right: 15px;"><input type="radio" bind:group={txType} value="EXPENSE"> Pengeluaran</label>
-                       <label><input type="radio" bind:group={txType} value="INCOME"> Pemasukan</label>
-                   </div>
-                   <div class="form-row">
-                       <input type="date" bind:value={txDate} />
-                       
-                       <input type="text" list="methods-list" bind:value={txMethod} placeholder="Metode/Rekening (Bebas)" />
-                       <datalist id="methods-list">
-                           {#each uniqueMethods as m} <option value={m}></option> {/each}
-                       </datalist>
 
-                       <input type="text" bind:value={txCategory} placeholder="Kategori" />
-                       <input type="number" bind:value={txAmount} on:keydown={handleKeydown} placeholder="Nominal (Rp)" />
-                       <button class="btn-primary" on:click={submitTransaction}>Save</button>
-                   </div>
+           <!-- 3. Tabel Pemasukan -->
+           <div class="card glass-panel" style="margin-top: 20px;">
+               <h2>Pemasukan (Income)</h2>
+               <div class="table-container notion-table-container">
+                   <table class="notion-table">
+                       <thead><tr><th>Tanggal</th><th>Keterangan (Source)</th><th>Kategori</th><th>Rekening</th><th>Nominal</th><th></th></tr></thead>
+                       <tbody>
+                           {#each incomes as tx}
+                           <tr class="editable-row">
+                               <td on:click={() => enterEditMode(tx, 'date')} style="cursor: pointer; width: 120px;">
+                                   {#if editingTxId === tx.id && editingField === 'date'}
+                                       <input type="date" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       {tx.date}
+                                   {/if}
+                               </td>
+                               <td on:click={() => enterEditMode(tx, 'description')} style="cursor: pointer;">
+                                   {#if editingTxId === tx.id && editingField === 'description'}
+                                       <input type="text" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       {tx.description || '-'}
+                                   {/if}
+                               </td>
+                               <td on:click={() => enterEditMode(tx, 'category')} style="cursor: pointer; width: 150px;">
+                                   {#if editingTxId === tx.id && editingField === 'category'}
+                                       <input type="text" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       <span class="tag tag-{getCategoryColor(tx.category)}">{tx.category}</span>
+                                   {/if}
+                               </td>
+                               <td on:click={() => enterEditMode(tx, 'method')} style="cursor: pointer; width: 150px;">
+                                   {#if editingTxId === tx.id && editingField === 'method'}
+                                       <input type="text" list="methods-list" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       <span class="tag tag-default">{tx.method}</span>
+                                   {/if}
+                               </td>
+                               <td class="amount" style="cursor: pointer; color: #34d399; width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
+                                   {#if editingTxId === tx.id && editingField === 'amount'}
+                                       <input type="number" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       Rp {tx.amount.toLocaleString('id-ID')}
+                                   {/if}
+                               </td>
+                               <td style="text-align: right; width: 40px;">
+                                   <button class="btn-danger btn-small" on:click={() => deleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                               </td>
+                           </tr>
+                           {/each}
+                           <!-- New Inline Row Income -->
+                           <tr class="new-inline-row notion-new-row">
+                               <td><input type="date" bind:value={newInlineIncome.date} /></td>
+                               <td><input type="text" bind:value={newInlineIncome.description} placeholder="Keterangan..." /></td>
+                               <td><input type="text" bind:value={newInlineIncome.category} placeholder="Kategori..." /></td>
+                               <td>
+                                   <input type="text" list="methods-list" bind:value={newInlineIncome.method} placeholder="Rekening..." />
+                                   <datalist id="methods-list">
+                                       {#each uniqueMethods as m} <option value={m}></option> {/each}
+                                   </datalist>
+                               </td>
+                               <td><input type="number" bind:value={newInlineIncome.amount} on:keydown={handleInlineNewIncomeKeydown} placeholder="Nominal..." /></td>
+                               <td style="text-align: right;">
+                                   <button class="btn-primary btn-small" on:click={submitInlineIncome}>Add</button>
+                               </td>
+                           </tr>
+                       </tbody>
+                   </table>
                </div>
-               
-               <div class="card glass-panel" style="margin-top: 20px;">
-                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                       <h2>Histori Transaksi</h2>
-                       <div class="filter-group">
-                           <button class:active={activeFilter==='ALL'} on:click={() => activeFilter='ALL'}>ALL</button>
-                           <button class:active={activeFilter==='Q1'} on:click={() => activeFilter='Q1'}>Q1</button>
-                           <button class:active={activeFilter==='Q2'} on:click={() => activeFilter='Q2'}>Q2</button>
-                           <button class:active={activeFilter==='Q3'} on:click={() => activeFilter='Q3'}>Q3</button>
-                           <button class:active={activeFilter==='Q4'} on:click={() => activeFilter='Q4'}>Q4</button>
-                       </div>
-                   </div>
-                   <div class="table-container">
-                       <table class="full-table">
-                            <thead><tr><th>Tanggal</th><th>Rekening</th><th>Kategori</th><th>Nominal</th><th></th></tr></thead>
-                            <tbody>
-                                {#each filteredExpenses as tx}
-                                <tr class="editable-row">
-                                    <td on:click={() => enterEditMode(tx, 'date')} style="cursor: pointer;">
-                                        {#if editingTxId === tx.id && editingField === 'date'}
-                                            <input type="date" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
-                                        {:else}
-                                            {tx.date}
-                                        {/if}
-                                    </td>
-                                    <td on:click={() => enterEditMode(tx, 'method')} style="cursor: pointer;">
-                                        {#if editingTxId === tx.id && editingField === 'method'}
-                                            <input type="text" list="methods-list" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
-                                        {:else}
-                                            <span class="tag">{tx.method}</span>
-                                        {/if}
-                                    </td>
-                                    <td on:click={() => enterEditMode(tx, 'category')} style="cursor: pointer;">
-                                        {#if editingTxId === tx.id && editingField === 'category'}
-                                            <input type="text" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
-                                        {:else}
-                                            {tx.category}
-                                        {/if}
-                                    </td>
-                                    <td class="amount" style="cursor: pointer; color: {tx.type === 'INCOME' ? '#34d399' : '#f87171'}" on:click={() => enterEditMode(tx, 'amount')}>
-                                        {#if editingTxId === tx.id && editingField === 'amount'}
-                                            <input type="number" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus style="width: 100px;" />
-                                        {:else}
-                                            {tx.type === 'INCOME' ? '+' : '-'} Rp {tx.amount.toLocaleString('id-ID')}
-                                        {/if}
-                                    </td>
-                                    <td style="text-align: right; width: 40px;">
-                                        <button class="btn-danger btn-small" on:click={() => deleteTransaction(tx.id)} title="Hapus">🗑️</button>
-                                    </td>
-                                </tr>
-                                {/each}
-                                <!-- New Inline Row -->
-                                <tr class="new-inline-row">
-                                    <td><input type="date" bind:value={newInlineTx.date} style="width: 120px;" /></td>
-                                    <td><input type="text" list="methods-list" bind:value={newInlineTx.method} placeholder="Rekening..." style="width: 100px;" /></td>
-                                    <td><input type="text" bind:value={newInlineTx.category} placeholder="Kategori..." style="width: 120px;" /></td>
-                                    <td style="display: flex; gap: 5px; align-items: center;">
-                                        <select bind:value={newInlineTx.type} style="padding: 2px;">
-                                            <option value="EXPENSE">-</option>
-                                            <option value="INCOME">+</option>
-                                        </select>
-                                        <input type="number" bind:value={newInlineTx.amount} on:keydown={handleInlineNewKeydown} placeholder="Nominal..." style="width: 100px;" />
-                                    </td>
-                                    <td style="text-align: right;">
-                                        <button class="btn-primary btn-small" on:click={submitInlineTransaction}>Add</button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                   </div>
+           </div>
+
+           <!-- 4. Tabel Pengeluaran -->
+           <div class="card glass-panel" style="margin-top: 20px;">
+               <h2>Pengeluaran (Expense)</h2>
+               <div class="table-container notion-table-container">
+                   <table class="notion-table">
+                       <thead><tr><th>Tanggal</th><th>Keterangan (Source)</th><th>Kategori</th><th>Rekening</th><th>Nominal</th><th></th></tr></thead>
+                       <tbody>
+                           {#each expenses as tx}
+                           <tr class="editable-row">
+                               <td on:click={() => enterEditMode(tx, 'date')} style="cursor: pointer; width: 120px;">
+                                   {#if editingTxId === tx.id && editingField === 'date'}
+                                       <input type="date" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       {tx.date}
+                                   {/if}
+                               </td>
+                               <td on:click={() => enterEditMode(tx, 'description')} style="cursor: pointer;">
+                                   {#if editingTxId === tx.id && editingField === 'description'}
+                                       <input type="text" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       {tx.description || '-'}
+                                   {/if}
+                               </td>
+                               <td on:click={() => enterEditMode(tx, 'category')} style="cursor: pointer; width: 150px;">
+                                   {#if editingTxId === tx.id && editingField === 'category'}
+                                       <input type="text" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       <span class="tag tag-{getCategoryColor(tx.category)}">{tx.category}</span>
+                                   {/if}
+                               </td>
+                               <td on:click={() => enterEditMode(tx, 'method')} style="cursor: pointer; width: 150px;">
+                                   {#if editingTxId === tx.id && editingField === 'method'}
+                                       <input type="text" list="methods-list" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       <span class="tag tag-default">{tx.method}</span>
+                                   {/if}
+                               </td>
+                               <td class="amount" style="cursor: pointer; color: #f87171; width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
+                                   {#if editingTxId === tx.id && editingField === 'amount'}
+                                       <input type="number" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                   {:else}
+                                       Rp {tx.amount.toLocaleString('id-ID')}
+                                   {/if}
+                               </td>
+                               <td style="text-align: right; width: 40px;">
+                                   <button class="btn-danger btn-small" on:click={() => deleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                               </td>
+                           </tr>
+                           {/each}
+                           <!-- New Inline Row Expense -->
+                           <tr class="new-inline-row notion-new-row">
+                               <td><input type="date" bind:value={newInlineExpense.date} /></td>
+                               <td><input type="text" bind:value={newInlineExpense.description} placeholder="Keterangan..." /></td>
+                               <td><input type="text" bind:value={newInlineExpense.category} placeholder="Kategori..." /></td>
+                               <td><input type="text" list="methods-list" bind:value={newInlineExpense.method} placeholder="Rekening..." /></td>
+                               <td><input type="number" bind:value={newInlineExpense.amount} on:keydown={handleInlineNewExpenseKeydown} placeholder="Nominal..." /></td>
+                               <td style="text-align: right;">
+                                   <button class="btn-primary btn-small" on:click={submitInlineExpense}>Add</button>
+                               </td>
+                           </tr>
+                       </tbody>
+                   </table>
+               </div>
+           </div>
+
+           <!-- 5. Tabel Budget -->
+           <div class="card glass-panel" style="margin-top: 20px;">
+               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                   <h2>Anggaran & Realisasi (Budget)</h2>
+               </div>
+               <div class="table-container notion-table-container">
+                   <table class="notion-table">
+                       <thead><tr><th>Kategori</th><th>Interval</th><th>Limit Anggaran</th><th>Terpakai</th><th>Sisa</th><th>Realisasi</th></tr></thead>
+                       <tbody>
+                           {#each budgetsData as b}
+                           <tr>
+                               <td><span class="tag tag-{getCategoryColor(b.category)}">{b.category}</span></td>
+                               <td><span class="tag tag-default">{b.interval}</span></td>
+                               <td class="amount">Rp {b.limit.toLocaleString('id-ID')}</td>
+                               <td class="amount">Rp {b.spent.toLocaleString('id-ID')}</td>
+                               <td class="amount">Rp {b.remaining.toLocaleString('id-ID')}</td>
+                               <td style="width: 150px;">
+                                   <div class="budget-bar-bg" style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+                                       <div class="budget-bar-fill" style="height: 100%; transition: width 0.3s; width: {Math.min((b.spent / b.limit) * 100, 100)}%; background-color: {(b.spent / b.limit) > 0.9 ? '#ef4444' : (b.spent / b.limit) > 0.7 ? '#facc15' : '#10b981'}"></div>
+                                   </div>
+                               </td>
+                           </tr>
+                           {/each}
+                           <!-- Set budget inline form -->
+                           <tr class="new-inline-row notion-new-row">
+                               <td><input type="text" bind:value={newBudgetCategory} placeholder="Kategori Baru..." /></td>
+                               <td>
+                                   <select bind:value={newBudgetInterval}>
+                                       <option value="MONTHLY">Bulanan</option>
+                                       <option value="WEEKLY">Mingguan</option>
+                                   </select>
+                               </td>
+                               <td><input type="number" bind:value={newBudgetLimit} placeholder="Limit (Rp)" /></td>
+                               <td colspan="3" style="text-align: right;">
+                                   <button class="btn-primary btn-small" on:click={submitBudget}>Set Budget</button>
+                               </td>
+                           </tr>
+                       </tbody>
+                   </table>
                </div>
            </div>
        </div>
@@ -696,6 +829,12 @@
   .btn-primary:hover { background: #7dd3fc; }
   .btn-small { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; border-radius: 4px; padding: 5px 10px; cursor: pointer; }
   
+  /* Vertical Stack Layout */
+  .vertical-stack { display: flex; flex-direction: column; gap: 20px; }
+  .row-charts { display: flex; gap: 20px; width: 100%; }
+  .chart-50 { flex: 2; }
+  .chart-25 { flex: 1; }
+
   /* Tables */
   .minimal-table { width: 100%; border-collapse: collapse; }
   .minimal-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -706,19 +845,31 @@
   .full-table th { color: #94a3b8; font-weight: 500; }
   .full-table .amount { text-align: right; font-family: monospace; font-size: 1rem; }
   .table-container { max-height: 400px; overflow-y: auto; }
+
+  /* Notion Style Table */
+  .notion-table-container { max-height: 500px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; }
+  .notion-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .notion-table th { background: rgba(255,255,255,0.02); color: #94a3b8; font-weight: 500; text-align: left; padding: 8px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.05); }
+  .notion-table td { padding: 6px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); border-right: 1px solid rgba(255, 255, 255, 0.02); }
+  .notion-table td:last-child, .notion-table th:last-child { border-right: none; }
+  .notion-table .amount { font-family: monospace; font-size: 0.95rem; }
+  .notion-table .editable-row:hover { background: rgba(255,255,255,0.02); }
+  .notion-new-row td { background: rgba(255,255,255,0.01); }
+  .notion-new-row input, .notion-new-row select { padding: 4px 8px; font-size: 0.85rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); width: 100%; box-sizing: border-box; }
   
   /* Filter */
   .filter-group { display: flex; gap: 5px; }
   .filter-group button { background: none; border: 1px solid rgba(255,255,255,0.2); color: #94a3b8; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem; }
   .filter-group button.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: bold; }
   
-  /* Budget Tracker */
-  .budget-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 20px; }
-  .budget-item { margin-bottom: 15px; }
-  .budget-head { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px; }
-  .budget-bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 5px; }
-  .budget-bar-fill { height: 100%; transition: width 0.3s; }
-  .budget-details { display: flex; justify-content: space-between; font-size: 0.8rem; color: #94a3b8; }
-  
-  .tag { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
+  /* Tag Capsules */
+  .tag { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
+  .tag-default { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+  .tag-blue { background: rgba(56, 189, 248, 0.2); color: #7dd3fc; }
+  .tag-green { background: rgba(52, 211, 153, 0.2); color: #6ee7b7; }
+  .tag-yellow { background: rgba(250, 204, 21, 0.2); color: #fde047; }
+  .tag-red { background: rgba(248, 113, 113, 0.2); color: #fca5a5; }
+  .tag-purple { background: rgba(192, 132, 252, 0.2); color: #d8b4fe; }
+  .tag-pink { background: rgba(244, 114, 182, 0.2); color: #f9a8d4; }
+  .tag-indigo { background: rgba(129, 140, 248, 0.2); color: #a5b4fc; }
 </style>
