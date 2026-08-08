@@ -100,6 +100,10 @@
     calculateMonthlyData();
     if (activeTab === 'dashboard') {
         setTimeout(renderDashboardCharts, 100);
+    } else if (activeTab === 'cashflow') {
+        setTimeout(renderCashflowCharts, 100);
+    } else if (activeTab === 'portfolio') {
+        setTimeout(renderPortfolioChart, 100);
     }
   }
 
@@ -122,6 +126,86 @@
           if(m >= 1 && m <= 12) monthlyData[m-1].expense += exp.amount;
       });
       monthlyData.forEach(d => d.net = d.income - d.expense);
+  }
+
+  // --- REACTIVE STATE ---
+  $: totalCashBalance = accountsData.reduce((sum, a) => sum + a.balance, 0);
+  $: totalPortfolioValue = portfolioData?.assets ? portfolioData.assets.reduce((sum, a) => sum + a.total_value, 0) : 0;
+  $: netWorth = totalCashBalance + totalPortfolioValue;
+
+  $: currentMonthSummary = (() => {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1; // 1-12
+      
+      let income = 0;
+      let expense = 0;
+      
+      incomes.forEach(inc => {
+          const parts = inc.date.split('-');
+          if (parts.length >= 2 && parseInt(parts[0]) === currentYear && parseInt(parts[1]) === currentMonth) {
+              income += inc.amount;
+          }
+      });
+      
+      expenses.forEach(exp => {
+          const parts = exp.date.split('-');
+          if (parts.length >= 2 && parseInt(parts[0]) === currentYear && parseInt(parts[1]) === currentMonth) {
+              expense += exp.amount;
+          }
+      });
+      
+      return { income, expense, net: income - expense };
+  })();
+
+  $: budgetAlerts = budgetsData.filter(b => (b.spent / b.limit) >= 0.7);
+
+  $: recentTransactions = (() => {
+      const all = [
+          ...incomes.map(i => ({ ...i, type: 'INCOME' })),
+          ...expenses.map(e => ({ ...e, type: 'EXPENSE' }))
+      ];
+      // Sort by date desc
+      all.sort((a, b) => new Date(b.date) - new Date(a.date));
+      return all.slice(0, 5);
+  })();
+
+  // --- HELPERS ---
+  let deleteConfirmTxId = null;
+  function askDeleteTransaction(id) { deleteConfirmTxId = id; }
+  function cancelDelete() { deleteConfirmTxId = null; }
+  async function confirmDeleteTransaction(id) {
+      await deleteTransaction(id);
+      deleteConfirmTxId = null;
+  }
+
+  function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length < 3) return dateStr;
+      const day = parseInt(parts[2].split('T')[0]); // Handle possible timestamp
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const month = months[parseInt(parts[1]) - 1] || '';
+      const year = parts[0];
+      return `${day} ${month} ${year}`;
+  }
+
+  const methodColors = {
+      'CASH': 'green',
+      'BANK': 'blue',
+      'EWALLET': 'purple',
+      'GOPAY': 'purple',
+      'OVO': 'purple',
+      'DANA': 'purple',
+      'BCA': 'blue',
+      'MANDIRI': 'blue',
+      'CIMB': 'blue',
+      'DEFAULT': 'default'
+  };
+  function getMethodColor(method) {
+      if (!method) return 'default';
+      const m = method.toUpperCase();
+      return methodColors[m] || 'default';
   }
 
   // --- ACTIONS ---
@@ -465,44 +549,96 @@
   });
 </script>
 
-<main>
-  <h1>FinFlow Wealthboard</h1>
-  
-  <div class="tabs">
-    <button class:active={activeTab === 'dashboard'} on:click={() => setTab('dashboard')}>Dashboard</button>
-    <button class:active={activeTab === 'cashflow'} on:click={() => setTab('cashflow')}>Cashflow</button>
-    <button class:active={activeTab === 'portfolio'} on:click={() => setTab('portfolio')}>Portfolio</button>
-  </div>
-  
-  <div class="container fade-in">
-    {#if activeTab === 'dashboard'}
-       <div class="row">
-           <div class="card glass-panel flex-2">
-               <h2>Savings Trend (2026)</h2>
-               <canvas bind:this={savingsCanvas}></canvas>
-           </div>
-           <div class="card glass-panel flex-1 center-content">
-               <h2>Income Breakdown</h2>
-               <div class="donut-wrapper"><canvas bind:this={incDonutCanvas}></canvas></div>
-           </div>
-           <div class="card glass-panel flex-1 center-content">
-               <h2>Expense Breakdown</h2>
-               <div class="donut-wrapper"><canvas bind:this={expDonutCanvas}></canvas></div>
-           </div>
-       </div>
-       <h2 style="margin-top: 30px;">Total Saving (Monthly)</h2>
-       <div class="grid-12">
-           {#each monthlyData as data}
-           <div class="month-card glass-panel">
-               <h4>Bulan {data.month}</h4>
-               <div class="stat"><span class="text-green">In:</span> Rp {data.income.toLocaleString('id-ID')}</div>
-               <div class="stat"><span class="text-red">Out:</span> Rp {data.expense.toLocaleString('id-ID')}</div>
-               <div class="stat-net" style="color: {data.net >= 0 ? '#34d399' : '#f87171'}">
-                   Net: Rp {data.net.toLocaleString('id-ID')}
-               </div>
-           </div>
-           {/each}
-       </div>
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1 class="logo">💎 FinFlow</h1>
+    </div>
+    <div class="sidebar-menu">
+      <button class:active={activeTab === 'dashboard'} on:click={() => setTab('dashboard')}>
+          <span class="icon">📊</span> Dashboard
+      </button>
+      <button class:active={activeTab === 'cashflow'} on:click={() => setTab('cashflow')}>
+          <span class="icon">💸</span> Cashflow
+      </button>
+      <button class:active={activeTab === 'portfolio'} on:click={() => setTab('portfolio')}>
+          <span class="icon">💼</span> Portfolio
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <span class="version">v1.0</span>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="main-area">
+    <!-- Navbar -->
+    <nav class="navbar glass-panel">
+      <div class="nav-title">
+        {activeTab === 'dashboard' ? 'Dashboard Overview' : activeTab === 'cashflow' ? 'Cashflow Management' : 'Portfolio Tracking'}
+      </div>
+      <div class="nav-stats">
+        <span class="stat-badge"><span class="icon">💼</span> Kekayaan Bersih: Rp {netWorth.toLocaleString('id-ID')}</span>
+      </div>
+    </nav>
+
+    <!-- Scrollable Content -->
+    <main class="content-container fade-in">
+      {#if activeTab === 'dashboard'}
+         <div class="dashboard-grid">
+             <!-- Row 1: Summary Cards -->
+             <div class="summary-cards">
+                 <div class="card glass-panel stat-card">
+                     <h4>Pemasukan Bulan Ini</h4>
+                     <div class="value text-green">Rp {currentMonthSummary.income.toLocaleString('id-ID')}</div>
+                 </div>
+                 <div class="card glass-panel stat-card">
+                     <h4>Pengeluaran Bulan Ini</h4>
+                     <div class="value text-red">Rp {currentMonthSummary.expense.toLocaleString('id-ID')}</div>
+                 </div>
+                 <div class="card glass-panel stat-card">
+                     <h4>Sisa (Net) Bulan Ini</h4>
+                     <div class="value" style="color: {currentMonthSummary.net >= 0 ? '#34d399' : '#f87171'}">Rp {currentMonthSummary.net.toLocaleString('id-ID')}</div>
+                 </div>
+             </div>
+
+             <!-- Row 2: Alerts and Recent Transactions -->
+             <div class="row" style="margin-top: 20px; align-items: flex-start;">
+                 <div class="card glass-panel flex-1">
+                     <h2>🚨 Budget Alerts</h2>
+                     {#if budgetAlerts.length > 0}
+                         <ul class="alert-list" style="margin-top:15px; padding-left:0; list-style:none;">
+                             {#each budgetAlerts as alert}
+                             <li style="margin-bottom: 12px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px;">
+                                 <span class="category">{alert.category}</span>
+                                 <span class="progress-text" style="color: { (alert.spent/alert.limit) > 0.9 ? '#ef4444' : '#facc15' }; font-weight:600;">{Math.round((alert.spent/alert.limit)*100)}% terpakai</span>
+                             </li>
+                             {/each}
+                         </ul>
+                     {:else}
+                         <p class="text-muted" style="margin-top:10px;">Semua anggaran aman bulan ini.</p>
+                     {/if}
+                 </div>
+                 
+                 <div class="card glass-panel flex-2">
+                     <h2>Recent Transactions</h2>
+                     <table class="notion-table" style="margin-top:15px;">
+                         <tbody>
+                             {#each recentTransactions as tx}
+                             <tr>
+                                 <td style="width: 120px;">{formatDate(tx.date)}</td>
+                                 <td>{tx.description} <span class="tag tag-{getMethodColor(tx.method)}" style="margin-left: 8px;">{tx.method}</span></td>
+                                 <td style="width: 150px; text-align: right; color: {tx.type === 'INCOME' ? '#34d399' : '#f87171'}; font-weight: 500;">
+                                     {tx.type === 'INCOME' ? '+' : '-'} Rp {tx.amount.toLocaleString('id-ID')}
+                                 </td>
+                             </tr>
+                             {/each}
+                         </tbody>
+                     </table>
+                 </div>
+             </div>
+         </div>
 
     {:else if activeTab === 'cashflow'}
        <div class="vertical-stack">
@@ -552,7 +688,7 @@
                                    {#if editingTxId === tx.id && editingField === 'date'}
                                        <input type="date" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
                                    {:else}
-                                       {tx.date}
+                                       {formatDate(tx.date)}
                                    {/if}
                                </td>
                                <td on:click={() => enterEditMode(tx, 'description')} style="cursor: pointer;">
@@ -573,7 +709,7 @@
                                    {#if editingTxId === tx.id && editingField === 'method'}
                                        <input type="text" list="methods-list" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
                                    {:else}
-                                       <span class="tag tag-default">{tx.method}</span>
+                                       <span class="tag tag-{getMethodColor(tx.method)}">{tx.method}</span>
                                    {/if}
                                </td>
                                <td class="amount" style="cursor: pointer; color: #34d399; width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
@@ -583,8 +719,13 @@
                                        Rp {tx.amount.toLocaleString('id-ID')}
                                    {/if}
                                </td>
-                               <td style="text-align: right; width: 40px;">
-                                   <button class="btn-danger btn-small" on:click={() => deleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                               <td style="text-align: right; display: flex; gap: 4px; justify-content: flex-end; width: max-content;">
+                                   {#if deleteConfirmTxId === tx.id}
+                                       <button class="btn-danger btn-small" style="padding: 2px 6px; font-size: 11px;" on:click={() => confirmDeleteTransaction(tx.id)}>Ya</button>
+                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 4px; cursor: pointer;" on:click={cancelDelete}>Batal</button>
+                                   {:else}
+                                       <button class="btn-danger btn-small" on:click={() => askDeleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                                   {/if}
                                </td>
                            </tr>
                            {/each}
@@ -622,7 +763,7 @@
                                    {#if editingTxId === tx.id && editingField === 'date'}
                                        <input type="date" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
                                    {:else}
-                                       {tx.date}
+                                       {formatDate(tx.date)}
                                    {/if}
                                </td>
                                <td on:click={() => enterEditMode(tx, 'description')} style="cursor: pointer;">
@@ -643,7 +784,7 @@
                                    {#if editingTxId === tx.id && editingField === 'method'}
                                        <input type="text" list="methods-list" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
                                    {:else}
-                                       <span class="tag tag-default">{tx.method}</span>
+                                       <span class="tag tag-{getMethodColor(tx.method)}">{tx.method}</span>
                                    {/if}
                                </td>
                                <td class="amount" style="cursor: pointer; color: #f87171; width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
@@ -653,8 +794,13 @@
                                        Rp {tx.amount.toLocaleString('id-ID')}
                                    {/if}
                                </td>
-                               <td style="text-align: right; width: 40px;">
-                                   <button class="btn-danger btn-small" on:click={() => deleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                               <td style="text-align: right; display: flex; gap: 4px; justify-content: flex-end; width: max-content;">
+                                   {#if deleteConfirmTxId === tx.id}
+                                       <button class="btn-danger btn-small" style="padding: 2px 6px; font-size: 11px;" on:click={() => confirmDeleteTransaction(tx.id)}>Ya</button>
+                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 4px; cursor: pointer;" on:click={cancelDelete}>Batal</button>
+                                   {:else}
+                                       <button class="btn-danger btn-small" on:click={() => askDeleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                                   {/if}
                                </td>
                            </tr>
                            {/each}
@@ -691,8 +837,11 @@
                                <td class="amount">Rp {b.spent.toLocaleString('id-ID')}</td>
                                <td class="amount">Rp {b.remaining.toLocaleString('id-ID')}</td>
                                <td style="width: 150px;">
-                                   <div class="budget-bar-bg" style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
-                                       <div class="budget-bar-fill" style="height: 100%; transition: width 0.3s; width: {Math.min((b.spent / b.limit) * 100, 100)}%; background-color: {(b.spent / b.limit) > 0.9 ? '#ef4444' : (b.spent / b.limit) > 0.7 ? '#facc15' : '#10b981'}"></div>
+                                   <div style="display: flex; align-items: center; gap: 8px;">
+                                       <div class="budget-bar-bg" style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; flex: 1;">
+                                           <div class="budget-bar-fill" style="width: {Math.min((b.spent/b.limit)*100, 100)}%; height: 100%; background: {(b.spent/b.limit) > 0.9 ? '#ef4444' : (b.spent/b.limit) > 0.7 ? '#facc15' : '#10b981'};"></div>
+                                       </div>
+                                       <span style="font-size: 0.8rem; color: #94a3b8; width: 35px; text-align: right;">{Math.round((b.spent/b.limit)*100)}%</span>
                                    </div>
                                </td>
                            </tr>
@@ -783,18 +932,42 @@
            </div>
        </div>
     {/if}
+    </main>
   </div>
-</main>
+</div>
 
 <style>
-  :global(body) { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; padding: 30px; }
-  h1 { text-align: center; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; font-size: 2rem; }
-  h2 { margin-top: 0; font-size: 1.1rem; color: #e2e8f0; font-weight: 600; }
+  :global(body) { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+  h1, h2, h3, h4 { margin-top: 0; }
+  h2 { font-size: 1.1rem; color: #e2e8f0; font-weight: 600; }
   
-  .tabs { display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; }
-  .tabs button { background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); padding: 8px 24px; border-radius: 20px; cursor: pointer; transition: 0.3s; font-weight: bold; }
-  .tabs button.active { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: #38bdf8; }
+  /* Layout */
+  .app-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+  .sidebar { width: 250px; background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; padding: 20px; z-index: 10; box-sizing: border-box; }
+  .sidebar-header { margin-bottom: 30px; }
+  .sidebar-header .logo { font-size: 1.5rem; text-align: left; margin: 0; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   
+  .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .sidebar-menu button { display: flex; align-items: center; gap: 12px; background: transparent; border: none; padding: 12px 16px; border-radius: 8px; color: #94a3b8; font-weight: 500; cursor: pointer; transition: 0.2s; font-size: 0.95rem; text-align: left; }
+  .sidebar-menu button:hover { background: rgba(255,255,255,0.03); color: #e2e8f0; }
+  .sidebar-menu button.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-weight: 600; }
+  .sidebar-menu button .icon { font-size: 1.1rem; }
+  
+  .sidebar-footer { font-size: 0.8rem; color: #64748b; }
+  
+  .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #0f172a; }
+  
+  .navbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-bottom: 1px solid rgba(255,255,255,0.05); border-radius: 0; margin-bottom: 0; box-shadow: none; z-index: 5; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); }
+  .navbar .nav-title { font-size: 1.2rem; font-weight: 600; color: #e2e8f0; }
+  .navbar .nav-stats .stat-badge { background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); padding: 8px 16px; border-radius: 20px; font-weight: 600; color: #38bdf8; font-size: 0.9rem; }
+  
+  .content-container { flex: 1; overflow-y: auto; padding: 30px; }
+  
+  .dashboard-grid { display: flex; flex-direction: column; gap: 20px; }
+  .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .stat-card h4 { margin: 0 0 10px 0; color: #94a3b8; font-size: 0.9rem; font-weight: 500; }
+  .stat-card .value { font-size: 1.5rem; font-weight: 700; }
+
   .container { max-width: 1200px; margin: 0 auto; }
   .row { display: flex; gap: 20px; flex-wrap: wrap; }
   .col { display: flex; flex-direction: column; gap: 20px; }
@@ -854,6 +1027,8 @@
   .notion-table td:last-child, .notion-table th:last-child { border-right: none; }
   .notion-table .amount { font-family: monospace; font-size: 0.95rem; }
   .notion-table .editable-row:hover { background: rgba(255,255,255,0.02); }
+  .notion-table .editable-row input { border: none; background: transparent; padding: 0; margin: 0; color: inherit; font-size: inherit; font-family: inherit; width: 100%; box-sizing: border-box; }
+  .notion-table .editable-row input:focus { outline: none; border-bottom: 1px solid #38bdf8; }
   .notion-new-row td { background: rgba(255,255,255,0.01); }
   .notion-new-row input, .notion-new-row select { padding: 4px 8px; font-size: 0.85rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); width: 100%; box-sizing: border-box; }
   
