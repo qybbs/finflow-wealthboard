@@ -282,6 +282,56 @@ func (h *APIHandler) AddIncome(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"success", "message": "Pemasukan berhasil ditambahkan"}`))
 }
 
+func (h *APIHandler) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var updatedTx storage.Transaction
+	err := json.NewDecoder(r.Body).Decode(&updatedTx)
+	if err != nil {
+		http.Error(w, "Data JSON tidak valid", http.StatusBadRequest)
+		return
+	}
+
+	err = h.Store.UpdateTransaction(updatedTx)
+	if err != nil {
+		http.Error(w, "Gagal memperbarui data: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"success", "message": "Transaksi berhasil diperbarui"}`))
+}
+
+func (h *APIHandler) DeleteTransaction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID string `json:"id"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil || req.ID == "" {
+		http.Error(w, "Data JSON tidak valid atau ID kosong", http.StatusBadRequest)
+		return
+	}
+
+	err = h.Store.DeleteTransaction(req.ID)
+	if err != nil {
+		http.Error(w, "Gagal menghapus data: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"success", "message": "Transaksi berhasil dihapus"}`))
+}
+
 func (h *APIHandler) AddPortfolioTransaction(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)

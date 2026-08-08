@@ -20,6 +20,22 @@
   let incDonutCanvas;
   let incDonutChart = null;
   let expDonutCanvas;
+  let analyticsData = {};
+  
+  // Edit State
+  let editingTxId = null;
+  let editingField = null;
+  let editingValue = '';
+  
+  // New Inline Row State
+  let newInlineTx = {
+      date: new Date().toISOString().split('T')[0],
+      method: '',
+      category: '',
+      type: 'EXPENSE',
+      amount: ''
+  };
+
   let expDonutChart = null;
   
   // Forms
@@ -116,6 +132,92 @@
         await fetchAllData(); // Refresh all
       }
     } catch (err) {}
+  }
+
+  // Inline Editing Functions
+  function enterEditMode(tx, field) {
+      editingTxId = tx.id;
+      editingField = field;
+      editingValue = tx[field];
+  }
+  
+  async function saveEdit(tx) {
+      if (!editingTxId) return;
+      
+      const updatedTx = { ...tx };
+      // Assign the new value
+      if (editingField === 'amount') {
+          updatedTx.amount = parseFloat(editingValue) || 0;
+      } else {
+          updatedTx[editingField] = editingValue;
+      }
+
+      try {
+          const res = await fetch('/api/transactions/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatedTx)
+          });
+          if (res.ok) {
+              await fetchAllData();
+          }
+      } catch (err) {}
+      
+      editingTxId = null;
+      editingField = null;
+  }
+  
+  function handleEditKeydown(e, tx) {
+      if (e.key === 'Enter') {
+          saveEdit(tx);
+      } else if (e.key === 'Escape') {
+          editingTxId = null;
+          editingField = null;
+      }
+  }
+
+  async function deleteTransaction(id) {
+      try {
+          const res = await fetch('/api/transactions/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+          });
+          if (res.ok) {
+              await fetchAllData();
+          }
+      } catch (err) {}
+  }
+
+  async function submitInlineTransaction() {
+      if (!newInlineTx.category || !newInlineTx.amount || !newInlineTx.method) return;
+      const newTx = {
+          id: "tx_" + Date.now(),
+          date: newInlineTx.date,
+          type: newInlineTx.type,
+          category: newInlineTx.category,
+          amount: parseFloat(newInlineTx.amount),
+          description: "",
+          method: newInlineTx.method.toUpperCase()
+      };
+      try {
+          const endpoint = newInlineTx.type === 'INCOME' ? '/api/incomes/add' : '/api/expenses/add';
+          const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newTx)
+          });
+          if (res.ok) {
+              newInlineTx.category = ''; newInlineTx.amount = ''; newInlineTx.method = '';
+              await fetchAllData();
+          }
+      } catch (err) {}
+  }
+
+  function handleInlineNewKeydown(e) {
+      if (e.key === 'Enter') {
+          submitInlineTransaction();
+      }
   }
 
   async function submitPortfolioTx() {
@@ -422,20 +524,61 @@
                    </div>
                    <div class="table-container">
                        <table class="full-table">
-                           <thead><tr><th>Tanggal</th><th>Rekening</th><th>Kategori</th><th>Nominal</th></tr></thead>
-                           <tbody>
-                               {#each filteredExpenses as tx}
-                               <tr>
-                                   <td>{tx.date}</td>
-                                   <td><span class="tag">{tx.method}</span></td>
-                                   <td>{tx.category}</td>
-                                   <td class="amount" style="color: {tx.type === 'INCOME' ? '#34d399' : '#f87171'}">
-                                       {tx.type === 'INCOME' ? '+' : '-'} Rp {tx.amount.toLocaleString('id-ID')}
-                                   </td>
-                               </tr>
-                               {/each}
-                           </tbody>
-                       </table>
+                            <thead><tr><th>Tanggal</th><th>Rekening</th><th>Kategori</th><th>Nominal</th><th></th></tr></thead>
+                            <tbody>
+                                {#each filteredExpenses as tx}
+                                <tr class="editable-row">
+                                    <td on:click={() => enterEditMode(tx, 'date')} style="cursor: pointer;">
+                                        {#if editingTxId === tx.id && editingField === 'date'}
+                                            <input type="date" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                        {:else}
+                                            {tx.date}
+                                        {/if}
+                                    </td>
+                                    <td on:click={() => enterEditMode(tx, 'method')} style="cursor: pointer;">
+                                        {#if editingTxId === tx.id && editingField === 'method'}
+                                            <input type="text" list="methods-list" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                        {:else}
+                                            <span class="tag">{tx.method}</span>
+                                        {/if}
+                                    </td>
+                                    <td on:click={() => enterEditMode(tx, 'category')} style="cursor: pointer;">
+                                        {#if editingTxId === tx.id && editingField === 'category'}
+                                            <input type="text" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
+                                        {:else}
+                                            {tx.category}
+                                        {/if}
+                                    </td>
+                                    <td class="amount" style="cursor: pointer; color: {tx.type === 'INCOME' ? '#34d399' : '#f87171'}" on:click={() => enterEditMode(tx, 'amount')}>
+                                        {#if editingTxId === tx.id && editingField === 'amount'}
+                                            <input type="number" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus style="width: 100px;" />
+                                        {:else}
+                                            {tx.type === 'INCOME' ? '+' : '-'} Rp {tx.amount.toLocaleString('id-ID')}
+                                        {/if}
+                                    </td>
+                                    <td style="text-align: right; width: 40px;">
+                                        <button class="btn-danger btn-small" on:click={() => deleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                                    </td>
+                                </tr>
+                                {/each}
+                                <!-- New Inline Row -->
+                                <tr class="new-inline-row">
+                                    <td><input type="date" bind:value={newInlineTx.date} style="width: 120px;" /></td>
+                                    <td><input type="text" list="methods-list" bind:value={newInlineTx.method} placeholder="Rekening..." style="width: 100px;" /></td>
+                                    <td><input type="text" bind:value={newInlineTx.category} placeholder="Kategori..." style="width: 120px;" /></td>
+                                    <td style="display: flex; gap: 5px; align-items: center;">
+                                        <select bind:value={newInlineTx.type} style="padding: 2px;">
+                                            <option value="EXPENSE">-</option>
+                                            <option value="INCOME">+</option>
+                                        </select>
+                                        <input type="number" bind:value={newInlineTx.amount} on:keydown={handleInlineNewKeydown} placeholder="Nominal..." style="width: 100px;" />
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <button class="btn-primary btn-small" on:click={submitInlineTransaction}>Add</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                    </div>
                </div>
            </div>

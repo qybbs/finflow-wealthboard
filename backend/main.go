@@ -55,6 +55,9 @@ func main() {
 	mux.HandleFunc("/api/expenses/add", api.AddExpense)
 	mux.HandleFunc("/api/incomes/add", api.AddIncome)
 	
+	mux.HandleFunc("/api/transactions/update", api.UpdateTransaction)
+	mux.HandleFunc("/api/transactions/delete", api.DeleteTransaction)
+	
 	mux.HandleFunc("/api/portfolio", api.GetPortfolio)
 	mux.HandleFunc("/api/portfolio/update", api.UpdatePortfolio)
 	mux.HandleFunc("/api/portfolio/transaction", api.AddPortfolioTransaction)

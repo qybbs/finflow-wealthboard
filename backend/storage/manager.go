@@ -175,6 +175,19 @@ func (sm *StorageManager) GetBudgets() ([]Budget, error) {
 	return budgets, nil
 }
 
+func (sm *StorageManager) UpdateTransaction(tx Transaction) error {
+	_, err := sm.DB.Exec(
+		`UPDATE transactions SET date = $1, type = $2, category = $3, amount = $4, description = $5, method = $6 WHERE id = $7`,
+		tx.Date, tx.Type, tx.Category, tx.Amount, tx.Description, tx.Method, tx.ID,
+	)
+	return err
+}
+
+func (sm *StorageManager) DeleteTransaction(id string) error {
+	_, err := sm.DB.Exec(`DELETE FROM transactions WHERE id = $1`, id)
+	return err
+}
+
 func (sm *StorageManager) BackupAllFiles() error {
 	// For Postgres, we might use pg_dump or simply rely on database backups.
 	// We'll log it as implemented by external tools for Postgres, or run pg_dump.
