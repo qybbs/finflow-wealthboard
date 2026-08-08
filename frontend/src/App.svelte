@@ -23,10 +23,22 @@
   let expDonutChart = null;
   
   // Forms
+  let txType = 'EXPENSE';
   let txCategory = '';
   let txAmount = '';
   let txMethod = '';
   let txDate = new Date().toISOString().split('T')[0];
+  
+  // Portfolio Form State
+  let portTxType = 'BUY';
+  let portAssetID = '';
+  let portAssetType = 'SAHAM';
+  let portAssetCode = '';
+  let portQuantity = '';
+  let portPrice = '';
+  let portFee = '';
+  let portMethod = '';
+  let portDate = new Date().toISOString().split('T')[0];
   
   let newBudgetCategory = '';
   let newBudgetLimit = '';
@@ -86,14 +98,15 @@
     const newTx = {
       id: "tx_" + Date.now(),
       date: txDate,
-      type: "EXPENSE",
+      type: txType,
       category: txCategory,
       amount: parseFloat(txAmount),
       description: "",
       method: txMethod.toUpperCase()
     };
     try {
-      const res = await fetch('/api/expenses/add', {
+      const endpoint = txType === 'INCOME' ? '/api/incomes/add' : '/api/expenses/add';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTx)
@@ -103,6 +116,50 @@
         await fetchAllData(); // Refresh all
       }
     } catch (err) {}
+  }
+
+  async function submitPortfolioTx() {
+      if(!portAssetCode || !portQuantity || !portPrice || !portMethod) return;
+      const req = {
+          id: "ptx_" + Date.now(),
+          date: portDate,
+          asset_id: "asset_" + portAssetCode.toUpperCase(),
+          asset_type: portAssetType,
+          asset_code: portAssetCode.toUpperCase(),
+          type: portTxType,
+          quantity: parseFloat(portQuantity),
+          price_per_unit: parseFloat(portPrice),
+          fee: parseFloat(portFee) || 0,
+          method: portMethod.toUpperCase()
+      };
+      
+      try {
+          const res = await fetch('/api/portfolio/transaction', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(req)
+          });
+          if(res.ok) {
+              portAssetCode = ''; portQuantity = ''; portPrice = ''; portFee = ''; portMethod = '';
+              await fetchAllData();
+          }
+      } catch (err) {}
+  }
+
+  async function updateNAV(assetID, currentPrice) {
+      const newPrice = prompt("Masukkan NAV / Harga baru:", currentPrice);
+      if(newPrice === null || isNaN(newPrice)) return;
+      
+      try {
+          const res = await fetch('/api/portfolio/update-price', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ asset_id: assetID, price: parseFloat(newPrice) })
+          });
+          if(res.ok) {
+              await fetchAllData();
+          }
+      } catch (err) {}
   }
 
   async function submitBudget() {
@@ -333,7 +390,11 @@
            <!-- RIGHT COLUMN -->
            <div class="col flex-2">
                <div class="card glass-panel">
-                   <h2>Tambah Pengeluaran Cepat</h2>
+                   <h2>Tambah Transaksi Cepat</h2>
+                   <div style="margin-bottom: 10px; font-size: 0.9rem;">
+                       <label style="margin-right: 15px;"><input type="radio" bind:group={txType} value="EXPENSE"> Pengeluaran</label>
+                       <label><input type="radio" bind:group={txType} value="INCOME"> Pemasukan</label>
+                   </div>
                    <div class="form-row">
                        <input type="date" bind:value={txDate} />
                        
@@ -368,7 +429,9 @@
                                    <td>{tx.date}</td>
                                    <td><span class="tag">{tx.method}</span></td>
                                    <td>{tx.category}</td>
-                                   <td class="amount text-red">Rp {tx.amount.toLocaleString('id-ID')}</td>
+                                   <td class="amount" style="color: {tx.type === 'INCOME' ? '#34d399' : '#f87171'}">
+                                       {tx.type === 'INCOME' ? '+' : '-'} Rp {tx.amount.toLocaleString('id-ID')}
+                                   </td>
                                </tr>
                                {/each}
                            </tbody>
@@ -386,6 +449,29 @@
            </div>
            
            <div class="card glass-panel flex-2">
+             <h2>Mutasi Portofolio & Aset</h2>
+             <div class="form-row" style="margin-bottom: 20px;">
+                 <select bind:value={portTxType} style="width: auto;">
+                     <option value="BUY">BUY</option>
+                     <option value="SELL">SELL</option>
+                     <option value="DIVIDEND">DIVIDEND</option>
+                 </select>
+                 <select bind:value={portAssetType} style="width: auto;">
+                     <option value="SAHAM">SAHAM</option>
+                     <option value="REKSA_DANA">REKSA DANA</option>
+                     <option value="EMAS">EMAS</option>
+                 </select>
+                 <input type="text" bind:value={portAssetCode} placeholder="Kode Aset" />
+                 <input type="number" bind:value={portQuantity} placeholder="Jumlah Unit" />
+                 <input type="number" bind:value={portPrice} placeholder="Harga/Unit (Rp)" />
+             </div>
+             <div class="form-row" style="margin-bottom: 30px;">
+                 <input type="number" bind:value={portFee} placeholder="Fee Transaksi (Rp)" />
+                 <input type="text" list="methods-list" bind:value={portMethod} placeholder="Metode/Rekening Pembayaran" />
+                 <input type="date" bind:value={portDate} style="width: 150px;"/>
+                 <button class="btn-primary" on:click={submitPortfolioTx}>Proses Transaksi</button>
+             </div>
+
              <div class="flex-between">
                  <h2>Daftar Aset</h2>
                  <div style="text-align: right;">
@@ -403,7 +489,12 @@
                                 {asset.code}
                                 {#if asset.profit_loss_pct <= -10} <span title="Alert!" style="color: #fbbf24;">⚠️</span> {/if}
                              </td>
-                             <td>{asset.type}</td>
+                             <td>
+                                {asset.type}
+                                {#if asset.type === 'REKSA_DANA'}
+                                   <button class="btn-small" style="margin-left: 5px; padding: 2px 5px;" on:click={() => updateNAV(asset.id, asset.current_price)}>✏️</button>
+                                {/if}
+                             </td>
                              <td>{asset.quantity}</td>
                              <td>Rp {asset.current_price.toLocaleString('id-ID')}</td>
                              <td>Rp {asset.total_value.toLocaleString('id-ID')}</td>

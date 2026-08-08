@@ -7,22 +7,28 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	store := storage.NewStorageManager(
-		"../data/income.csv",
-		"../data/expense.csv",
-		"../data/portfolio.json",
-		"../data/budget.json",
-	)
+	if err := godotenv.Load(); err != nil {
+		log.Println("Peringatan: file .env tidak ditemukan, menggunakan environment default")
+	}
+
+	db, err := storage.InitDB()
+	if err != nil {
+		log.Fatalf("Gagal inisialisasi database: %v", err)
+	}
+	defer db.Close()
+
+	if err := storage.MigrateData(db, "../data/income.csv", "../data/expense.csv", "../data/portfolio.json", "../data/budget.json"); err != nil {
+		log.Printf("Peringatan saat migrasi data: %v", err)
+	}
+
+	store := storage.NewStorageManager(db)
 
 	fmt.Println("Memulai FinFlow Wealthboard...")
-	if err := store.BackupAllFiles(); err != nil {
-		log.Printf("Peringatan: Gagal melakukan backup: %v\n", err)
-	} else {
-		fmt.Println("Auto-backup selesai (atau file belum ada)")
-	}
 
 	mux := http.NewServeMux()
 
@@ -47,8 +53,13 @@ func main() {
 	mux.HandleFunc("/api/expenses", api.GetExpenses)
 	mux.HandleFunc("/api/incomes", api.GetIncomes)
 	mux.HandleFunc("/api/expenses/add", api.AddExpense)
+	mux.HandleFunc("/api/incomes/add", api.AddIncome)
+	
 	mux.HandleFunc("/api/portfolio", api.GetPortfolio)
 	mux.HandleFunc("/api/portfolio/update", api.UpdatePortfolio)
+	mux.HandleFunc("/api/portfolio/transaction", api.AddPortfolioTransaction)
+	mux.HandleFunc("/api/portfolio/update-price", api.UpdateAssetPrice)
+	
 	mux.HandleFunc("/api/analytics", api.GetAnalytics)
 	mux.HandleFunc("/api/accounts", api.GetAccounts)
 	mux.HandleFunc("/api/budgets", api.GetBudgets)

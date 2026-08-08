@@ -21,26 +21,35 @@ func (h *APIHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Dalam skenario asli, h.Store.GetIncome() akan dipanggil.
-	// Karena kita menggunakan mock data untuk saat ini, kita lakukan perhitungan sederhana:
-	expenses, _ := h.Store.GetExpenses()
-	
-	// Hitung total pengeluaran
-	totalExp := 0.0
-	for _, exp := range expenses {
-		totalExp += exp.Amount
+	// Get Total Expenses
+	var totalExp float64
+	err := h.Store.DB.QueryRow(`SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'EXPENSE'`).Scan(&totalExp)
+	if err != nil {
+		totalExp = 0
 	}
 
-	// Contoh statis Pemasukan & Kas (Ideanya di-fetch dari income.csv)
-	totalInc := 15000000.0 // 15 Juta
-	totalCash := 50000000.0 // 50 Juta di kas
+	// Get Total Income
+	var totalInc float64
+	err = h.Store.DB.QueryRow(`SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'INCOME'`).Scan(&totalInc)
+	if err != nil {
+		totalInc = 0
+	}
+
+	totalCash = totalInc - totalExp
 
 	savingsRate := 0.0
 	if totalInc > 0 {
 		savingsRate = ((totalInc - totalExp) / totalInc) * 100
 	}
 
-	avgMonthlyExp := totalExp * 4 // Misalkan totalExp adalah seminggu
+	// Get number of unique months in expenses to calculate avgMonthlyExp
+	var uniqueMonths int
+	err = h.Store.DB.QueryRow(`SELECT COUNT(DISTINCT SUBSTR(date, 1, 7)) FROM transactions WHERE type = 'EXPENSE'`).Scan(&uniqueMonths)
+	if err != nil || uniqueMonths == 0 {
+		uniqueMonths = 1
+	}
+
+	avgMonthlyExp := totalExp / float64(uniqueMonths)
 	emergencyRunRate := 0.0
 	if avgMonthlyExp > 0 {
 		emergencyRunRate = totalCash / avgMonthlyExp

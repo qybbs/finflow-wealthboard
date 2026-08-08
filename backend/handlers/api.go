@@ -257,3 +257,78 @@ func (h *APIHandler) UpdateBudgets(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"success", "message": "Budget berhasil di-update"}`))
 }
+
+func (h *APIHandler) AddIncome(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var newTx storage.Transaction
+	err := json.NewDecoder(r.Body).Decode(&newTx)
+	if err != nil {
+		http.Error(w, "Data JSON tidak valid", http.StatusBadRequest)
+		return
+	}
+
+	err = h.Store.AddIncome(newTx)
+	if err != nil {
+		http.Error(w, "Gagal menyimpan data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(`{"status":"success", "message": "Pemasukan berhasil ditambahkan"}`))
+}
+
+func (h *APIHandler) AddPortfolioTransaction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req storage.PortfolioTransactionReq
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Data JSON tidak valid", http.StatusBadRequest)
+		return
+	}
+
+	err = h.Store.AddPortfolioTransaction(req)
+	if err != nil {
+		http.Error(w, "Gagal menyimpan transaksi portofolio: " + err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(`{"status":"success", "message": "Transaksi portofolio berhasil dicatat"}`))
+}
+
+func (h *APIHandler) UpdateAssetPrice(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		AssetID string  `json:"asset_id"`
+		Price   float64 `json:"price"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Data JSON tidak valid", http.StatusBadRequest)
+		return
+	}
+
+	err = h.Store.UpdateAssetPrice(req.AssetID, req.Price)
+	if err != nil {
+		http.Error(w, "Gagal memperbarui harga: " + err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"success", "message": "Harga aset berhasil diperbarui"}`))
+}
