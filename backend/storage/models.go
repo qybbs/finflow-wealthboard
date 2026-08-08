@@ -26,8 +26,8 @@ type Asset struct {
 type JournalEntry struct {
 	ID        string  `json:"id"`
 	Date      string  `json:"date"` // YYYY-MM-DD
-	AssetID   int     `json:"asset_id"` // Relasi ke tabel Asset
-	TransactionID int `json:"transaction_id"` // Relasi ke tabel Transaction
+	AssetID       string  `json:"asset_id"` // Relasi ke tabel Asset
+	TransactionID string  `json:"transaction_id"` // Relasi ke tabel Transaction
 	Type      string  `json:"type"` // "BUY" | "SELL" | "DIVIDEND" | "ADJUSTMENT"
 	Quantity  float64 `json:"quantity"` // Positif untuk buy, Negatif untuk sell
 	PricePerUnit float64 `json:"price_per_unit"`

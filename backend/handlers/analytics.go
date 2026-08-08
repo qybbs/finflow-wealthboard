@@ -35,7 +35,7 @@ func (h *APIHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 		totalInc = 0
 	}
 
-	totalCash = totalInc - totalExp
+	totalCash := totalInc - totalExp
 
 	savingsRate := 0.0
 	if totalInc > 0 {
