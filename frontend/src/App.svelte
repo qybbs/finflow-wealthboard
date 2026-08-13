@@ -1,6 +1,24 @@
 <script>
   import { onMount, tick } from 'svelte';
   import Chart from 'chart.js/auto';
+  import { 
+      LayoutDashboard, 
+      ArrowLeftRight, 
+      Briefcase, 
+      Palette, 
+      Sun, 
+      Moon, 
+      TrendingUp, 
+      TrendingDown, 
+      AlertTriangle, 
+      Trash2, 
+      Plus, 
+      Edit2,
+      Check,
+      X,
+      Lightbulb,
+      FileText
+  } from 'lucide-svelte';
 
   // --- STATE ---
   let activeTab = 'dashboard';
@@ -461,28 +479,28 @@
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <h1 class="logo">💎 FinFlow</h1>
+      <h1 class="logo" style="display: flex; align-items: center; gap: 8px;"><LayoutDashboard size={24} color="var(--brand-primary)" /> FinFlow</h1>
     </div>
     <div class="sidebar-menu">
       <button class:active={activeTab === 'dashboard'} on:click={() => setTab('dashboard')}>
-          <span class="icon">📊</span> Dashboard
+          <span class="icon" style="display: flex;"><LayoutDashboard size={18} /></span> Dashboard
       </button>
       <button class:active={activeTab === 'cashflow'} on:click={() => setTab('cashflow')}>
-          <span class="icon">💸</span> Cashflow
+          <span class="icon" style="display: flex;"><ArrowLeftRight size={18} /></span> Cashflow
       </button>
       <button class:active={activeTab === 'portfolio'} on:click={() => setTab('portfolio')}>
-          <span class="icon">💼</span> Portfolio
+          <span class="icon" style="display: flex;"><Briefcase size={18} /></span> Portfolio
       </button>
       <button class:active={activeTab === 'design-system'} on:click={() => setTab('design-system')}>
-          <span class="icon">🎨</span> Design System
+          <span class="icon" style="display: flex;"><Palette size={18} /></span> Design System
       </button>
     </div>
     <div class="sidebar-footer">
       <button class="theme-btn" on:click={toggleTheme} style="background:transparent; border:1px solid var(--border-color); color:var(--text-secondary); width:100%; text-align:left; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:12px; cursor:pointer; display:flex; align-items:center; gap:8px;">
           {#if currentTheme === 'dark'}
-              <span class="icon">☀️</span> Light Mode
+              <span class="icon" style="display: flex;"><Sun size={16} /></span> Light Mode
           {:else}
-              <span class="icon">🌙</span> Dark Mode
+              <span class="icon" style="display: flex;"><Moon size={16} /></span> Dark Mode
           {/if}
       </button>
       <span class="version" style="display:block; text-align:center;">v1.0</span>
@@ -497,7 +515,7 @@
         {activeTab === 'dashboard' ? 'Dashboard Overview' : activeTab === 'cashflow' ? 'Cashflow Management' : 'Portfolio Tracking'}
       </div>
       <div class="nav-stats">
-        <span class="stat-badge"><span class="icon">💼</span> Kekayaan Bersih: Rp {netWorth.toLocaleString('id-ID')}</span>
+        <span class="stat-badge" style="display: inline-flex; align-items: center; gap: 6px;"><Briefcase size={16} /> Kekayaan Bersih: Rp {netWorth.toLocaleString('id-ID')}</span>
       </div>
     </nav>
 
@@ -524,7 +542,7 @@
              <!-- Financial Health Analytics -->
              <div class="row" style="margin-top: 20px;">
                  <div class="card glass-panel flex-1">
-                     <h2>📊 Financial Health</h2>
+                     <h2 style="display: flex; align-items: center; gap: 8px;"><LayoutDashboard size={20} /> Financial Health</h2>
                      <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 10px;">
                          <div>
                              <div class="flex-between">
@@ -544,8 +562,9 @@
                              </div>
                              <div style="font-size: 0.8rem; color: var(--text-secondary);">Target: > 6 bulan pengeluaran</div>
                          </div>
-                         <div style="margin-top: 10px; padding: 10px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid var(--brand-primary); font-size: 0.9rem;">
-                             💡 {analyticsData.recommendation || 'Data belum tersedia'}
+                         <div style="margin-top: 10px; padding: 10px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid var(--brand-primary); font-size: 0.9rem; display: flex; align-items: flex-start; gap: 8px;">
+                             <Lightbulb size={18} style="flex-shrink: 0; margin-top: 2px;" /> 
+                             <span>{analyticsData.recommendation || 'Data belum tersedia'}</span>
                          </div>
                      </div>
                  </div>
@@ -554,7 +573,7 @@
              <!-- Row 2: Alerts and Recent Transactions -->
              <div class="row" style="margin-top: 20px; align-items: flex-start;">
                  <div class="card glass-panel flex-1">
-                     <h2>🚨 Budget Alerts</h2>
+                     <h2 style="display: flex; align-items: center; gap: 8px;"><AlertTriangle size={20} /> Budget Alerts</h2>
                      {#if budgetAlerts.length > 0}
                          <ul class="alert-list" style="margin-top:15px; padding-left:0; list-style:none;">
                              {#each budgetAlerts as alert}
@@ -593,22 +612,22 @@
            <!-- 1. Chart Overview -->
            <div class="row-charts">
                <div class="card glass-panel chart-50">
-                   <h2>Savings Trend (2026)</h2>
+                   <h2 style="display: flex; align-items: center; gap: 8px;"><TrendingUp size={20} /> Savings Trend (2026)</h2>
                    <canvas bind:this={cfSavingsCanvas}></canvas>
                </div>
                <div class="card glass-panel chart-25 center-content">
-                   <h2>Income Breakdown</h2>
+                   <h2 style="display: flex; align-items: center; gap: 8px;"><TrendingUp size={20} /> Income Breakdown</h2>
                    <div class="donut-wrapper"><canvas bind:this={cfIncDonutCanvas}></canvas></div>
                </div>
                <div class="card glass-panel chart-25 center-content">
-                   <h2>Expense Breakdown</h2>
+                   <h2 style="display: flex; align-items: center; gap: 8px;"><TrendingDown size={20} /> Expense Breakdown</h2>
                    <div class="donut-wrapper"><canvas bind:this={cfExpDonutCanvas}></canvas></div>
                </div>
            </div>
 
            <!-- 2. Total Saving -->
            <div class="card glass-panel" style="margin-top: 20px;">
-               <h2>Total Saving (Monthly)</h2>
+               <h2 style="display: flex; align-items: center; gap: 8px;"><ArrowLeftRight size={20} /> Total Saving (Monthly)</h2>
                <div class="grid-12" style="margin-top: 15px;">
                    {#each monthlyData as data}
                    <div class="month-card glass-panel">
@@ -672,7 +691,7 @@
                                        <button class="btn-danger btn-small" style="padding: 2px 6px; font-size: 11px;" on:click={() => confirmDeleteTransaction(tx.id)}>Ya</button>
                                        <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: var(--radius-sm); cursor: pointer;" on:click={cancelDelete}>Batal</button>
                                    {:else}
-                                       <button class="btn-danger btn-small" on:click={() => askDeleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                                       <button class="btn-danger btn-small" style="display: flex; align-items: center; justify-content: center; padding: 4px;" on:click={() => askDeleteTransaction(tx.id)} title="Hapus"><Trash2 size={14} /></button>
                                    {/if}
                                </td>
                            </tr>
@@ -747,7 +766,7 @@
                                        <button class="btn-danger btn-small" style="padding: 2px 6px; font-size: 11px;" on:click={() => confirmDeleteTransaction(tx.id)}>Ya</button>
                                        <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: var(--radius-sm); cursor: pointer;" on:click={cancelDelete}>Batal</button>
                                    {:else}
-                                       <button class="btn-danger btn-small" on:click={() => askDeleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                                       <button class="btn-danger btn-small" style="display: flex; align-items: center; justify-content: center; padding: 4px;" on:click={() => askDeleteTransaction(tx.id)} title="Hapus"><Trash2 size={14} /></button>
                                    {/if}
                                </td>
                            </tr>
@@ -859,14 +878,18 @@
                          {#each portfolioData.assets as asset}
                          <tr>
                              <td>
-                                {asset.code}
-                                {#if asset.profit_loss_pct <= -10} <span title="Alert!" style="color: var(--color-yellow);">⚠️</span> {/if}
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    {asset.code}
+                                    {#if asset.profit_loss_pct <= -10} <span title="Alert!" style="color: var(--color-yellow); display: flex;"><AlertTriangle size={14} /></span> {/if}
+                                </div>
                              </td>
                              <td>
-                                {asset.type}
-                                {#if asset.type === 'REKSA_DANA'}
-                                   <button class="btn-small" style="margin-left: 5px; padding: 2px 5px;" on:click={() => updateNAV(asset.id, asset.current_price)}>✏️</button>
-                                {/if}
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    {asset.type}
+                                    {#if asset.type === 'REKSA_DANA'}
+                                       <button class="btn-small" style="padding: 2px 5px; display: flex; align-items: center; justify-content: center;" on:click={() => updateNAV(asset.id, asset.current_price)}><Edit2 size={12} /></button>
+                                    {/if}
+                                </div>
                              </td>
                              <td>{asset.quantity}</td>
                              <td>Rp {asset.current_price.toLocaleString('id-ID')}</td>
@@ -881,12 +904,12 @@
        </div>
     {:else if activeTab === 'design-system'}
        <div class="content-container fade-in">
-           <h2>🎨 Design System Preview</h2>
+           <h2 style="display: flex; align-items: center; gap: 8px;"><Palette size={24} /> Design System Preview</h2>
            <p class="text-secondary" style="margin-bottom:20px;">Pratinjau komponen-komponen UI yang diatur menggunakan Design System terpusat.</p>
 
            <div class="vertical-stack">
                <div class="glass-panel">
-                   <h3>🌈 Color Palette & Status Tags</h3>
+                   <h3 style="display: flex; align-items: center; gap: 8px;"><Palette size={20} /> Color Palette & Status Tags</h3>
                    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:15px;">
                        <span class="tag tag-default">Default</span>
                        <span class="tag tag-blue">Primary Blue</span>
@@ -898,7 +921,7 @@
                </div>
 
                <div class="glass-panel">
-                   <h3>✍️ Typography</h3>
+                   <h3 style="display: flex; align-items: center; gap: 8px;"><FileText size={20} /> Typography</h3>
                    <h1>Heading 1 (h1)</h1>
                    <h2>Heading 2 (h2)</h2>
                    <h3>Heading 3 (h3)</h3>
@@ -909,7 +932,7 @@
                </div>
 
                <div class="glass-panel">
-                   <h3>🖱️ Interactive Components</h3>
+                   <h3 style="display: flex; align-items: center; gap: 8px;"><Plus size={20} /> Interactive Components</h3>
                    <div style="display:flex; gap:15px; margin-top:15px; align-items:center;">
                        <button class="btn-primary">Primary Button</button>
                        <button class="btn-primary" disabled>Disabled</button>
@@ -922,7 +945,7 @@
                </div>
                
                <div class="glass-panel" style="background: var(--brand-light); border-color: var(--brand-active);">
-                   <h3 class="text-blue">✨ Glassmorphism Showcase</h3>
+                   <h3 class="text-blue" style="display: flex; align-items: center; gap: 8px;"><Sun size={20} /> Glassmorphism Showcase</h3>
                    <p>This panel uses a tinted glassmorphism effect using CSS backdrop-filter.</p>
                </div>
            </div>
