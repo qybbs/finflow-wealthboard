@@ -4,8 +4,7 @@
 
   // --- STATE ---
   let activeTab = 'dashboard';
-
-  
+  let currentTheme = 'dark';
   let expenses = [];
   let incomes = [];
   let portfolioData = null;
@@ -75,8 +74,15 @@
 
   // --- LIFECYCLE ---
   onMount(async () => {
+    currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
     await fetchAllData();
   });
+
+  function toggleTheme() {
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    localStorage.setItem('theme', currentTheme);
+  }
 
   // --- FETCHING ---
   async function fetchAllData() {
@@ -89,9 +95,7 @@
         fetchAnalytics()
     ]);
     calculateMonthlyData();
-    if (activeTab === 'dashboard') {
-        setTimeout(renderDashboardCharts, 100);
-    } else if (activeTab === 'cashflow') {
+    if (activeTab === 'cashflow') {
         setTimeout(renderCashflowCharts, 100);
     } else if (activeTab === 'portfolio') {
         setTimeout(renderPortfolioChart, 100);
@@ -469,9 +473,19 @@
       <button class:active={activeTab === 'portfolio'} on:click={() => setTab('portfolio')}>
           <span class="icon">💼</span> Portfolio
       </button>
+      <button class:active={activeTab === 'design-system'} on:click={() => setTab('design-system')}>
+          <span class="icon">🎨</span> Design System
+      </button>
     </div>
     <div class="sidebar-footer">
-      <span class="version">v1.0</span>
+      <button class="theme-btn" on:click={toggleTheme} style="background:transparent; border:1px solid var(--border-color); color:var(--text-secondary); width:100%; text-align:left; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:12px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+          {#if currentTheme === 'dark'}
+              <span class="icon">☀️</span> Light Mode
+          {:else}
+              <span class="icon">🌙</span> Dark Mode
+          {/if}
+      </button>
+      <span class="version" style="display:block; text-align:center;">v1.0</span>
     </div>
   </aside>
 
@@ -503,7 +517,7 @@
                  </div>
                  <div class="card glass-panel stat-card">
                      <h4>Sisa (Net) Bulan Ini</h4>
-                     <div class="value" style="color: {currentMonthSummary.net >= 0 ? '#34d399' : '#f87171'}">Rp {currentMonthSummary.net.toLocaleString('id-ID')}</div>
+                     <div class="value" style="color: {currentMonthSummary.net >= 0 ? 'var(--color-green)' : 'var(--color-red)'}">Rp {currentMonthSummary.net.toLocaleString('id-ID')}</div>
                  </div>
              </div>
 
@@ -515,22 +529,22 @@
                          <div>
                              <div class="flex-between">
                                  <span>Savings Rate</span>
-                                 <span style="font-weight: bold; color: {analyticsData.savings_rate >= 20 ? '#34d399' : '#facc15'};">
+                                 <span style="font-weight: bold; color: {analyticsData.savings_rate >= 20 ? 'var(--color-green)' : 'var(--color-yellow)'};">
                                      {analyticsData.savings_rate ? analyticsData.savings_rate.toFixed(1) : 0}%
                                  </span>
                              </div>
-                             <div style="font-size: 0.8rem; color: #94a3b8;">Target: > 20%</div>
+                             <div style="font-size: 0.8rem; color: var(--text-secondary);">Target: > 20%</div>
                          </div>
                          <div>
                              <div class="flex-between">
                                  <span>Emergency Fund</span>
-                                 <span style="font-weight: bold; color: {analyticsData.emergency_run_rate >= 6 ? '#34d399' : '#f87171'};">
+                                 <span style="font-weight: bold; color: {analyticsData.emergency_run_rate >= 6 ? 'var(--color-green)' : 'var(--color-red)'};">
                                      {analyticsData.emergency_run_rate ? analyticsData.emergency_run_rate.toFixed(1) : 0} bulan
                                  </span>
                              </div>
-                             <div style="font-size: 0.8rem; color: #94a3b8;">Target: > 6 bulan pengeluaran</div>
+                             <div style="font-size: 0.8rem; color: var(--text-secondary);">Target: > 6 bulan pengeluaran</div>
                          </div>
-                         <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #38bdf8; font-size: 0.9rem;">
+                         <div style="margin-top: 10px; padding: 10px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid var(--brand-primary); font-size: 0.9rem;">
                              💡 {analyticsData.recommendation || 'Data belum tersedia'}
                          </div>
                      </div>
@@ -544,9 +558,9 @@
                      {#if budgetAlerts.length > 0}
                          <ul class="alert-list" style="margin-top:15px; padding-left:0; list-style:none;">
                              {#each budgetAlerts as alert}
-                             <li style="margin-bottom: 12px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px;">
+                             <li style="margin-bottom: 12px; display:flex; justify-content:space-between; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
                                  <span class="category">{alert.category}</span>
-                                 <span class="progress-text" style="color: { (alert.spent/alert.limit) > 0.9 ? '#ef4444' : '#facc15' }; font-weight:600;">{Math.round((alert.spent/alert.limit)*100)}% terpakai</span>
+                                 <span class="progress-text" style="color: { (alert.spent/alert.limit) > 0.9 ? 'var(--color-red)' : 'var(--color-yellow)' }; font-weight:600;">{Math.round((alert.spent/alert.limit)*100)}% terpakai</span>
                              </li>
                              {/each}
                          </ul>
@@ -563,7 +577,7 @@
                              <tr>
                                  <td style="width: 120px;">{formatDate(tx.date)}</td>
                                  <td>{tx.description} <span class="tag tag-{getMethodColor(tx.method)}" style="margin-left: 8px;">{tx.method}</span></td>
-                                 <td style="width: 150px; text-align: right; color: {tx.type === 'INCOME' ? '#34d399' : '#f87171'}; font-weight: 500;">
+                                 <td style="width: 150px; text-align: right; color: {tx.type === 'INCOME' ? 'var(--color-green)' : 'var(--color-red)'}; font-weight: 500;">
                                      {tx.type === 'INCOME' ? '+' : '-'} Rp {tx.amount.toLocaleString('id-ID')}
                                  </td>
                              </tr>
@@ -601,7 +615,7 @@
                        <h4>Bulan {data.month}</h4>
                        <div class="stat"><span class="text-green">In:</span> Rp {data.income.toLocaleString('id-ID')}</div>
                        <div class="stat"><span class="text-red">Out:</span> Rp {data.expense.toLocaleString('id-ID')}</div>
-                       <div class="stat-net" style="color: {data.net >= 0 ? '#34d399' : '#f87171'}">
+                       <div class="stat-net" style="color: {data.net >= 0 ? 'var(--color-green)' : 'var(--color-red)'}">
                            Net: Rp {data.net.toLocaleString('id-ID')}
                        </div>
                    </div>
@@ -646,7 +660,7 @@
                                        <span class="tag tag-{getMethodColor(tx.method)}">{tx.method}</span>
                                    {/if}
                                </td>
-                               <td class="amount" style="cursor: pointer; color: #34d399; width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
+                               <td class="amount" style="cursor: pointer; color: var(--color-green); width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
                                    {#if editingTxId === tx.id && editingField === 'amount'}
                                        <input type="number" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
                                    {:else}
@@ -656,7 +670,7 @@
                                <td style="text-align: right; display: flex; gap: 4px; justify-content: flex-end; width: max-content;">
                                    {#if deleteConfirmTxId === tx.id}
                                        <button class="btn-danger btn-small" style="padding: 2px 6px; font-size: 11px;" on:click={() => confirmDeleteTransaction(tx.id)}>Ya</button>
-                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 4px; cursor: pointer;" on:click={cancelDelete}>Batal</button>
+                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: var(--radius-sm); cursor: pointer;" on:click={cancelDelete}>Batal</button>
                                    {:else}
                                        <button class="btn-danger btn-small" on:click={() => askDeleteTransaction(tx.id)} title="Hapus">🗑️</button>
                                    {/if}
@@ -721,7 +735,7 @@
                                        <span class="tag tag-{getMethodColor(tx.method)}">{tx.method}</span>
                                    {/if}
                                </td>
-                               <td class="amount" style="cursor: pointer; color: #f87171; width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
+                               <td class="amount" style="cursor: pointer; color: var(--color-red); width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
                                    {#if editingTxId === tx.id && editingField === 'amount'}
                                        <input type="number" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
                                    {:else}
@@ -731,7 +745,7 @@
                                <td style="text-align: right; display: flex; gap: 4px; justify-content: flex-end; width: max-content;">
                                    {#if deleteConfirmTxId === tx.id}
                                        <button class="btn-danger btn-small" style="padding: 2px 6px; font-size: 11px;" on:click={() => confirmDeleteTransaction(tx.id)}>Ya</button>
-                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 4px; cursor: pointer;" on:click={cancelDelete}>Batal</button>
+                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: var(--radius-sm); cursor: pointer;" on:click={cancelDelete}>Batal</button>
                                    {:else}
                                        <button class="btn-danger btn-small" on:click={() => askDeleteTransaction(tx.id)} title="Hapus">🗑️</button>
                                    {/if}
@@ -772,10 +786,10 @@
                                <td class="amount">Rp {b.remaining.toLocaleString('id-ID')}</td>
                                <td style="width: 150px;">
                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                       <div class="budget-bar-bg" style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; flex: 1;">
-                                           <div class="budget-bar-fill" style="width: {Math.min((b.spent/b.limit)*100, 100)}%; height: 100%; background: {(b.spent/b.limit) > 0.9 ? '#ef4444' : (b.spent/b.limit) > 0.7 ? '#facc15' : '#10b981'};"></div>
+                                       <div class="budget-bar-bg" style="width: 100%; height: 8px; background: var(--border-color); border-radius: var(--radius-pill); overflow: hidden; flex: 1;">
+                                           <div class="budget-bar-fill" style="width: {Math.min((b.spent/b.limit)*100, 100)}%; height: 100%; background: {(b.spent/b.limit) > 0.9 ? 'var(--color-red)' : (b.spent/b.limit) > 0.7 ? 'var(--color-yellow)' : 'var(--color-green)'};"></div>
                                        </div>
-                                       <span style="font-size: 0.8rem; color: #94a3b8; width: 35px; text-align: right;">{Math.round((b.spent/b.limit)*100)}%</span>
+                                       <span style="font-size: 0.8rem; color: var(--text-secondary); width: 35px; text-align: right;">{Math.round((b.spent/b.limit)*100)}%</span>
                                    </div>
                                </td>
                            </tr>
@@ -846,7 +860,7 @@
                          <tr>
                              <td>
                                 {asset.code}
-                                {#if asset.profit_loss_pct <= -10} <span title="Alert!" style="color: #fbbf24;">⚠️</span> {/if}
+                                {#if asset.profit_loss_pct <= -10} <span title="Alert!" style="color: var(--color-yellow);">⚠️</span> {/if}
                              </td>
                              <td>
                                 {asset.type}
@@ -865,42 +879,84 @@
              </table>
            </div>
        </div>
+    {:else if activeTab === 'design-system'}
+       <div class="content-container fade-in">
+           <h2>🎨 Design System Preview</h2>
+           <p class="text-secondary" style="margin-bottom:20px;">Pratinjau komponen-komponen UI yang diatur menggunakan Design System terpusat.</p>
+
+           <div class="vertical-stack">
+               <div class="glass-panel">
+                   <h3>🌈 Color Palette & Status Tags</h3>
+                   <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:15px;">
+                       <span class="tag tag-default">Default</span>
+                       <span class="tag tag-blue">Primary Blue</span>
+                       <span class="tag tag-green">Success Green</span>
+                       <span class="tag tag-yellow">Warning Yellow</span>
+                       <span class="tag tag-red">Danger Red</span>
+                       <span class="tag tag-purple">Purple</span>
+                   </div>
+               </div>
+
+               <div class="glass-panel">
+                   <h3>✍️ Typography</h3>
+                   <h1>Heading 1 (h1)</h1>
+                   <h2>Heading 2 (h2)</h2>
+                   <h3>Heading 3 (h3)</h3>
+                   <h4>Heading 4 (h4) - Subtitle</h4>
+                   <p>This is standard body text. It uses the <span class="text-mono">Inter</span> font.</p>
+                   <p class="text-secondary">This is secondary text, typically used for descriptions.</p>
+                   <p class="text-muted">This is muted text, used for disabled or background info.</p>
+               </div>
+
+               <div class="glass-panel">
+                   <h3>🖱️ Interactive Components</h3>
+                   <div style="display:flex; gap:15px; margin-top:15px; align-items:center;">
+                       <button class="btn-primary">Primary Button</button>
+                       <button class="btn-primary" disabled>Disabled</button>
+                       <button class="btn-small">Small Outline</button>
+                   </div>
+                   <div style="margin-top: 20px; max-width: 300px;">
+                       <label style="display:block; margin-bottom:5px; font-size:0.9rem;" class="text-secondary">Example Input</label>
+                       <input type="text" placeholder="Type something..." />
+                   </div>
+               </div>
+               
+               <div class="glass-panel" style="background: var(--brand-light); border-color: var(--brand-active);">
+                   <h3 class="text-blue">✨ Glassmorphism Showcase</h3>
+                   <p>This panel uses a tinted glassmorphism effect using CSS backdrop-filter.</p>
+               </div>
+           </div>
+       </div>
     {/if}
     </main>
   </div>
 </div>
 
 <style>
-  :global(body) { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
-  h1, h2, h3, h4 { margin-top: 0; }
-  h2 { font-size: 1.1rem; color: #e2e8f0; font-weight: 600; }
-  
-  /* Layout */
-  .app-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-  .sidebar { width: 250px; background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; padding: 20px; z-index: 10; box-sizing: border-box; }
+  /* Layout Scope */
+  .sidebar { width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: var(--spacing-lg); z-index: 10; box-sizing: border-box; }
   .sidebar-header { margin-bottom: 30px; }
-  .sidebar-header .logo { font-size: 1.5rem; text-align: left; margin: 0; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .sidebar-header .logo { font-size: 1.5rem; text-align: left; margin: 0; background: linear-gradient(to right, var(--brand-primary), var(--color-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   
   .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-  .sidebar-menu button { display: flex; align-items: center; gap: 12px; background: transparent; border: none; padding: 12px 16px; border-radius: 8px; color: #94a3b8; font-weight: 500; cursor: pointer; transition: 0.2s; font-size: 0.95rem; text-align: left; }
-  .sidebar-menu button:hover { background: rgba(255,255,255,0.03); color: #e2e8f0; }
-  .sidebar-menu button.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-weight: 600; }
+  .sidebar-menu button { display: flex; align-items: center; gap: 12px; background: transparent; border: none; padding: 12px 16px; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: 500; cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast); font-size: 0.95rem; text-align: left; }
+  .sidebar-menu button:hover { background: var(--border-color); color: var(--text-primary); }
+  .sidebar-menu button.active { background: var(--brand-light); color: var(--brand-primary); font-weight: 600; }
   .sidebar-menu button .icon { font-size: 1.1rem; }
   
-  .sidebar-footer { font-size: 0.8rem; color: #64748b; }
+  .sidebar-footer { font-size: 0.8rem; color: var(--text-muted); }
   
-  .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #0f172a; }
+  .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-primary); }
   
-  .navbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-bottom: 1px solid rgba(255,255,255,0.05); border-radius: 0; margin-bottom: 0; box-shadow: none; z-index: 5; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); }
-  .navbar .nav-title { font-size: 1.2rem; font-weight: 600; color: #e2e8f0; }
-  .navbar .nav-stats .stat-badge { background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); padding: 8px 16px; border-radius: 20px; font-weight: 600; color: #38bdf8; font-size: 0.9rem; }
+  .navbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-bottom: 1px solid var(--border-color); border-radius: 0; margin-bottom: 0; box-shadow: none; z-index: 5; background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .navbar .nav-title { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); }
+  .navbar .nav-stats .stat-badge { background: var(--brand-light); border: 1px solid var(--brand-active); padding: 8px 16px; border-radius: var(--radius-pill); font-weight: 600; color: var(--brand-primary); font-size: 0.9rem; }
   
   .content-container { flex: 1; overflow-y: auto; padding: 30px; }
   
   .dashboard-grid { display: flex; flex-direction: column; gap: 20px; }
   .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-  .stat-card h4 { margin: 0 0 10px 0; color: #94a3b8; font-size: 0.9rem; font-weight: 500; }
-  .stat-card .value { font-size: 1.5rem; font-weight: 700; }
+  .stat-card .value { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 
   .container { max-width: 1200px; margin: 0 auto; }
   .row { display: flex; gap: 20px; flex-wrap: wrap; }
@@ -908,11 +964,8 @@
   .flex-1 { flex: 1; } .flex-2 { flex: 2; }
   .flex-between { display: flex; justify-content: space-between; align-items: center; }
   
-  .glass-panel { background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-  
   /* Utilities */
   .center-content { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .text-green { color: #34d399; } .text-red { color: #f87171; } .text-blue { color: #38bdf8; }
   .fade-in { animation: fadeIn 0.3s ease-in; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
   
@@ -923,18 +976,11 @@
   /* Grid 12 Months */
   .grid-12 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
   .month-card { padding: 15px; text-align: center; }
-  .month-card h4 { margin: 0 0 10px 0; color: #94a3b8; font-size: 0.9rem; }
+  .month-card h4 { margin: 0 0 10px 0; color: var(--text-secondary); font-size: 0.9rem; }
   .month-card .stat { font-size: 0.85rem; margin-bottom: 5px; }
-  .month-card .stat-net { margin-top: 10px; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px; }
+  .month-card .stat-net { margin-top: 10px; font-weight: bold; border-top: 1px solid var(--border-color); padding-top: 5px; }
   
-  /* Forms */
-  input, select { padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 0.9rem; width: 100%; box-sizing: border-box; }
-  input:focus, select:focus { outline: none; border-color: #38bdf8; }
   .form-row { display: flex; gap: 10px; margin-top: 15px; align-items: center; }
-  
-  .btn-primary { background: #38bdf8; color: #0f172a; font-weight: bold; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
-  .btn-primary:hover { background: #7dd3fc; }
-  .btn-small { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; border-radius: 4px; padding: 5px 10px; cursor: pointer; }
   
   /* Vertical Stack Layout */
   .vertical-stack { display: flex; flex-direction: column; gap: 20px; }
@@ -943,35 +989,21 @@
   .chart-25 { flex: 1; }
 
   /* Tables */
-  
   .full-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  .full-table th, .full-table td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left; }
-  .full-table th { color: #94a3b8; font-weight: 500; }
+  .full-table th, .full-table td { padding: 12px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
+  .full-table th { color: var(--text-secondary); font-weight: 500; }
   .table-container { max-height: 400px; overflow-y: auto; }
 
   /* Notion Style Table */
-  .notion-table-container { max-height: 500px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; }
+  .notion-table-container { max-height: 500px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); }
   .notion-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-  .notion-table th { background: rgba(255,255,255,0.02); color: #94a3b8; font-weight: 500; text-align: left; padding: 8px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.05); }
-  .notion-table td { padding: 6px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); border-right: 1px solid rgba(255, 255, 255, 0.02); }
+  .notion-table th { background: var(--bg-secondary); color: var(--text-secondary); font-weight: 500; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
+  .notion-table td { padding: 6px 12px; border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
   .notion-table td:last-child, .notion-table th:last-child { border-right: none; }
-  .notion-table .amount { font-family: monospace; font-size: 0.95rem; }
-  .notion-table .editable-row:hover { background: rgba(255,255,255,0.02); }
+  .notion-table .amount { font-family: var(--font-mono); font-size: 0.95rem; }
+  .notion-table .editable-row:hover { background: var(--bg-secondary); }
   .notion-table .editable-row input { border: none; background: transparent; padding: 0; margin: 0; color: inherit; font-size: inherit; font-family: inherit; width: 100%; box-sizing: border-box; }
-  .notion-table .editable-row input:focus { outline: none; border-bottom: 1px solid #38bdf8; }
-  .notion-new-row td { background: rgba(255,255,255,0.01); }
-  .notion-new-row input, .notion-new-row select { padding: 4px 8px; font-size: 0.85rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); width: 100%; box-sizing: border-box; }
-  
-  /* Filter */
-  
-  /* Tag Capsules */
-  .tag { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
-  .tag-default { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
-  .tag-blue { background: rgba(56, 189, 248, 0.2); color: #7dd3fc; }
-  .tag-green { background: rgba(52, 211, 153, 0.2); color: #6ee7b7; }
-  .tag-yellow { background: rgba(250, 204, 21, 0.2); color: #fde047; }
-  .tag-red { background: rgba(248, 113, 113, 0.2); color: #fca5a5; }
-  .tag-purple { background: rgba(192, 132, 252, 0.2); color: #d8b4fe; }
-  .tag-pink { background: rgba(244, 114, 182, 0.2); color: #f9a8d4; }
-  .tag-indigo { background: rgba(129, 140, 248, 0.2); color: #a5b4fc; }
+  .notion-table .editable-row input:focus { outline: none; border-bottom: 1px solid var(--brand-primary); }
+  .notion-new-row td { background: var(--bg-secondary); }
+  .notion-new-row input, .notion-new-row select { padding: 4px 8px; font-size: 0.85rem; background: transparent; border: 1px solid var(--border-color); width: 100%; box-sizing: border-box; }
 </style>

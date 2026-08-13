@@ -1,0 +1,246 @@
+/* ==========================================================================
+   FinFlow Wealthboard Design System
+   ========================================================================== */
+
+:root {
+  /* Font Family & Typography Tokens */
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing Tokens */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+
+  /* Default Light Theme (Fallback/System) */
+  --color-scheme: light;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-sidebar: #ffffff;
+  --border-color: rgba(0, 0, 0, 0.06);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  
+  --brand-primary: #0284c7;
+  --brand-hover: #0369a1;
+  --brand-light: rgba(2, 132, 199, 0.08);
+  --brand-active: rgba(2, 132, 199, 0.15);
+
+  --color-green: #10b981;
+  --color-green-light: rgba(16, 185, 129, 0.1);
+  --color-red: #ef4444;
+  --color-red-light: rgba(239, 68, 68, 0.1);
+  --color-yellow: #f59e0b;
+  --color-yellow-light: rgba(245, 158, 11, 0.1);
+  --color-blue: #3b82f6;
+  --color-blue-light: rgba(59, 130, 246, 0.1);
+  --color-purple: #8b5cf6;
+  --color-purple-light: rgba(139, 92, 246, 0.1);
+
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+}
+
+/* Dark Theme Variables */
+:root[data-theme="dark"] {
+  --color-scheme: dark;
+  --bg-primary: #0b0f19;
+  --bg-secondary: #111827;
+  --bg-sidebar: #0f172a;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --brand-primary: #38bdf8;
+  --brand-hover: #7dd3fc;
+  --brand-light: rgba(56, 189, 248, 0.08);
+  --brand-active: rgba(56, 189, 248, 0.15);
+
+  --color-green: #34d399;
+  --color-green-light: rgba(52, 211, 153, 0.1);
+  --color-red: #f87171;
+  --color-red-light: rgba(248, 113, 113, 0.1);
+  --color-yellow: #fbbf24;
+  --color-yellow-light: rgba(251, 191, 36, 0.1);
+  --color-blue: #60a5fa;
+  --color-blue-light: rgba(96, 165, 250, 0.1);
+  --color-purple: #a78bfa;
+  --color-purple-light: rgba(167, 139, 250, 0.1);
+
+  --glass-bg: rgba(15, 23, 42, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+  color-scheme: var(--color-scheme);
+}
+
+h1, h2, h3, h4 { margin-top: 0; }
+h2 { font-size: 1.1rem; color: var(--text-primary); font-weight: 600; }
+h4 { color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; }
+
+/* ==========================================================================
+   Premium Scrollbars
+   ========================================================================== */
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: var(--radius-pill);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+}
+* {
+  scrollbar-color: var(--border-color) transparent;
+  scrollbar-width: thin;
+}
+
+/* ==========================================================================
+   Layout Classes
+   ========================================================================== */
+
+.app-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+
+/* ==========================================================================
+   Glassmorphism Utilities
+   ========================================================================== */
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--glass-shadow);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+/* ==========================================================================
+   Forms & Buttons
+   ========================================================================== */
+
+input, select {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 2px var(--brand-light);
+}
+
+.btn-primary {
+  background: var(--brand-primary);
+  color: #ffffff; /* Primary buttons usually stay white text */
+  font-weight: 600;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  background: var(--brand-hover);
+}
+
+.btn-primary:disabled {
+  background: var(--border-color);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.btn-small {
+  background: var(--brand-light);
+  color: var(--brand-primary);
+  border: 1px solid var(--brand-light);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-small:hover {
+  background: var(--brand-active);
+  border-color: var(--brand-active);
+}
+
+/* ==========================================================================
+   Status Tags
+   ========================================================================== */
+
+.tag {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tag-default { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border-color); }
+.tag-blue { background: var(--color-blue-light); color: var(--color-blue); }
+.tag-green { background: var(--color-green-light); color: var(--color-green); }
+.tag-yellow { background: var(--color-yellow-light); color: var(--color-yellow); }
+.tag-red { background: var(--color-red-light); color: var(--color-red); }
+.tag-purple { background: var(--color-purple-light); color: var(--color-purple); }
+
+/* ==========================================================================
+   Typography Utilities
+   ========================================================================== */
+
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-green { color: var(--color-green); }
+.text-red { color: var(--color-red); }
+.text-blue { color: var(--brand-primary); }
+.text-mono { font-family: var(--font-mono); font-size: 0.95em; }
