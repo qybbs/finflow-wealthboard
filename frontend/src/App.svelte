@@ -4,7 +4,7 @@
 
   // --- STATE ---
   let activeTab = 'dashboard';
-  let activeFilter = 'ALL';
+
   
   let expenses = [];
   let incomes = [];
@@ -15,11 +15,7 @@
   // Charts
   let portfolioCanvas;
   let portfolioChart = null;
-  let savingsCanvas;
-  let savingsChart = null;
-  let incDonutCanvas;
-  let incDonutChart = null;
-  let expDonutCanvas;
+
   let analyticsData = {};
   
   // Edit State
@@ -37,7 +33,7 @@
       method: '', category: '', type: 'EXPENSE', amount: '', description: ''
   };
 
-  let expDonutChart = null;
+
 
   // Cashflow Charts
   let cfSavingsCanvas;
@@ -54,12 +50,7 @@
       return categoryColors[hash % categoryColors.length];
   }
   
-  // Forms
-  let txType = 'EXPENSE';
-  let txCategory = '';
-  let txAmount = '';
-  let txMethod = '';
-  let txDate = new Date().toISOString().split('T')[0];
+
   
   // Portfolio Form State
   let portTxType = 'BUY';
@@ -78,7 +69,6 @@
 
   // Derived
   $: uniqueMethods = accountsData.map(a => a.name);
-  $: totalPortfolioValue = portfolioData?.assets ? portfolioData.assets.reduce((sum, a) => sum + a.total_value, 0) : 0;
   $: totalFloatingPnL = portfolioData?.assets ? portfolioData.assets.reduce((sum, a) => sum + a.profit_loss, 0) : 0;
   
   let monthlyData = Array.from({length: 12}, (_, i) => ({ month: i+1, income: 0, expense: 0, net: 0 }));
@@ -95,7 +85,8 @@
         fetchIncomes(),
         fetchPortfolio(),
         fetchAccounts(),
-        fetchBudgets()
+        fetchBudgets(),
+        fetchAnalytics()
     ]);
     calculateMonthlyData();
     if (activeTab === 'dashboard') {
@@ -107,23 +98,29 @@
     }
   }
 
-  async function fetchExpenses() { const res = await fetch('/api/expenses'); expenses = await res.json() || []; }
-  async function fetchIncomes() { const res = await fetch('/api/incomes'); incomes = await res.json() || []; }
-  async function fetchPortfolio() { const res = await fetch('/api/portfolio'); portfolioData = await res.json(); }
-  async function fetchAccounts() { const res = await fetch('/api/accounts'); accountsData = await res.json() || []; }
-  async function fetchBudgets() { const res = await fetch('/api/budgets'); budgetsData = await res.json() || []; }
+  async function fetchExpenses() { try { const res = await fetch('/api/expenses'); if (res.ok) expenses = await res.json() || []; } catch(e) { console.error('fetchExpenses:', e); } }
+  async function fetchIncomes() { try { const res = await fetch('/api/incomes'); if (res.ok) incomes = await res.json() || []; } catch(e) { console.error('fetchIncomes:', e); } }
+  async function fetchPortfolio() { try { const res = await fetch('/api/portfolio'); if (res.ok) portfolioData = await res.json(); } catch(e) { console.error('fetchPortfolio:', e); } }
+  async function fetchAccounts() { try { const res = await fetch('/api/accounts'); if (res.ok) accountsData = await res.json() || []; } catch(e) { console.error('fetchAccounts:', e); } }
+  async function fetchBudgets() { try { const res = await fetch('/api/budgets'); if (res.ok) budgetsData = await res.json() || []; } catch(e) { console.error('fetchBudgets:', e); } }
+  async function fetchAnalytics() { try { const res = await fetch('/api/analytics'); if (res.ok) analyticsData = await res.json(); } catch(e) { console.error('fetchAnalytics:', e); } }
 
   function calculateMonthlyData() {
+      const currentYear = new Date().getFullYear();
       // Reset
       monthlyData = Array.from({length: 12}, (_, i) => ({ month: i+1, income: 0, expense: 0, net: 0 }));
       
       incomes.forEach(inc => {
-          const m = parseInt(inc.date.split('-')[1]);
-          if(m >= 1 && m <= 12) monthlyData[m-1].income += inc.amount;
+          const parts = inc.date.split('-');
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]);
+          if(y === currentYear && m >= 1 && m <= 12) monthlyData[m-1].income += inc.amount;
       });
       expenses.forEach(exp => {
-          const m = parseInt(exp.date.split('-')[1]);
-          if(m >= 1 && m <= 12) monthlyData[m-1].expense += exp.amount;
+          const parts = exp.date.split('-');
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]);
+          if(y === currentYear && m >= 1 && m <= 12) monthlyData[m-1].expense += exp.amount;
       });
       monthlyData.forEach(d => d.net = d.income - d.expense);
   }
@@ -209,30 +206,6 @@
   }
 
   // --- ACTIONS ---
-  async function submitTransaction() {
-    if (!txCategory || !txAmount || !txMethod) return;
-    const newTx = {
-      id: "tx_" + Date.now(),
-      date: txDate,
-      type: txType,
-      category: txCategory,
-      amount: parseFloat(txAmount),
-      description: "",
-      method: txMethod.toUpperCase()
-    };
-    try {
-      const endpoint = txType === 'INCOME' ? '/api/incomes/add' : '/api/expenses/add';
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTx)
-      });
-      if (res.ok) {
-        txCategory = ''; txAmount = ''; txMethod = '';
-        await fetchAllData(); // Refresh all
-      }
-    } catch (err) {}
-  }
 
   // Inline Editing Functions
   function enterEditMode(tx, field) {
@@ -404,17 +377,13 @@
     } catch (err) {}
   }
 
-  function handleKeydown(event) {
-    if (event.key === 'Enter') submitTransaction();
-  }
+
 
   // --- CHARTS ---
   async function setTab(tab) {
       activeTab = tab;
       await tick();
-      if (tab === 'dashboard') {
-          renderDashboardCharts();
-      } else if (tab === 'cashflow') {
+      if (tab === 'cashflow') {
           renderCashflowCharts();
       } else if (tab === 'portfolio') {
           renderPortfolioChart();
@@ -478,75 +447,10 @@
     });
   }
 
-  function renderDashboardCharts() {
-      if(!savingsCanvas || !incDonutCanvas || !expDonutCanvas) return;
 
-      if(savingsChart) savingsChart.destroy();
-      savingsChart = new Chart(savingsCanvas, {
-          type: 'line',
-          data: {
-              labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-              datasets: [{
-                  label: 'Net Savings (Rp)',
-                  data: monthlyData.map(d => d.net),
-                  borderColor: '#38bdf8',
-                  backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                  fill: true,
-                  tension: 0.4
-              }]
-          },
-          options: {
-              plugins: { legend: { labels: { color: 'white' } } },
-              scales: {
-                  x: { ticks: { color: '#94a3b8' } },
-                  y: { ticks: { color: '#94a3b8' } }
-              }
-          }
-      });
-
-      // Income Donut Grouped
-      let incMap = {};
-      incomes.forEach(i => incMap[i.category] = (incMap[i.category] || 0) + i.amount);
-      if(incDonutChart) incDonutChart.destroy();
-      incDonutChart = new Chart(incDonutCanvas, {
-          type: 'doughnut',
-          data: {
-              labels: Object.keys(incMap).length > 0 ? Object.keys(incMap) : ['No Data'],
-              datasets: [{
-                  data: Object.keys(incMap).length > 0 ? Object.values(incMap) : [1],
-                  backgroundColor: ['#34d399', '#10b981', '#059669'], borderWidth: 0
-              }]
-          },
-          options: { plugins: { legend: { display: false } }, cutout: '70%' }
-      });
-
-      // Expense Donut Grouped
-      let expMap = {};
-      expenses.forEach(e => expMap[e.category] = (expMap[e.category] || 0) + e.amount);
-      if(expDonutChart) expDonutChart.destroy();
-      expDonutChart = new Chart(expDonutCanvas, {
-          type: 'doughnut',
-          data: {
-              labels: Object.keys(expMap).length > 0 ? Object.keys(expMap) : ['No Data'],
-              datasets: [{
-                  data: Object.keys(expMap).length > 0 ? Object.values(expMap) : [1],
-                  backgroundColor: ['#f87171', '#ef4444', '#dc2626', '#b91c1c'], borderWidth: 0
-              }]
-          },
-          options: { plugins: { legend: { display: false } }, cutout: '70%' }
-      });
-  }
   
   // Helpers
-  $: filteredExpenses = expenses.filter(tx => {
-      if(activeFilter === 'ALL') return true;
-      const m = parseInt(tx.date.split('-')[1]);
-      if(activeFilter === 'Q1') return m >= 1 && m <= 3;
-      if(activeFilter === 'Q2') return m >= 4 && m <= 6;
-      if(activeFilter === 'Q3') return m >= 7 && m <= 9;
-      if(activeFilter === 'Q4') return m >= 10 && m <= 12;
-      return true;
-  });
+
 </script>
 
 <div class="app-layout">
@@ -600,6 +504,36 @@
                  <div class="card glass-panel stat-card">
                      <h4>Sisa (Net) Bulan Ini</h4>
                      <div class="value" style="color: {currentMonthSummary.net >= 0 ? '#34d399' : '#f87171'}">Rp {currentMonthSummary.net.toLocaleString('id-ID')}</div>
+                 </div>
+             </div>
+
+             <!-- Financial Health Analytics -->
+             <div class="row" style="margin-top: 20px;">
+                 <div class="card glass-panel flex-1">
+                     <h2>📊 Financial Health</h2>
+                     <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                         <div>
+                             <div class="flex-between">
+                                 <span>Savings Rate</span>
+                                 <span style="font-weight: bold; color: {analyticsData.savings_rate >= 20 ? '#34d399' : '#facc15'};">
+                                     {analyticsData.savings_rate ? analyticsData.savings_rate.toFixed(1) : 0}%
+                                 </span>
+                             </div>
+                             <div style="font-size: 0.8rem; color: #94a3b8;">Target: > 20%</div>
+                         </div>
+                         <div>
+                             <div class="flex-between">
+                                 <span>Emergency Fund</span>
+                                 <span style="font-weight: bold; color: {analyticsData.emergency_run_rate >= 6 ? '#34d399' : '#f87171'};">
+                                     {analyticsData.emergency_run_rate ? analyticsData.emergency_run_rate.toFixed(1) : 0} bulan
+                                 </span>
+                             </div>
+                             <div style="font-size: 0.8rem; color: #94a3b8;">Target: > 6 bulan pengeluaran</div>
+                         </div>
+                         <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #38bdf8; font-size: 0.9rem;">
+                             💡 {analyticsData.recommendation || 'Data belum tersedia'}
+                         </div>
+                     </div>
                  </div>
              </div>
 
@@ -1009,14 +943,10 @@
   .chart-25 { flex: 1; }
 
   /* Tables */
-  .minimal-table { width: 100%; border-collapse: collapse; }
-  .minimal-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .minimal-table .amount { text-align: right; font-weight: bold; }
   
   .full-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
   .full-table th, .full-table td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left; }
   .full-table th { color: #94a3b8; font-weight: 500; }
-  .full-table .amount { text-align: right; font-family: monospace; font-size: 1rem; }
   .table-container { max-height: 400px; overflow-y: auto; }
 
   /* Notion Style Table */
@@ -1033,9 +963,6 @@
   .notion-new-row input, .notion-new-row select { padding: 4px 8px; font-size: 0.85rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); width: 100%; box-sizing: border-box; }
   
   /* Filter */
-  .filter-group { display: flex; gap: 5px; }
-  .filter-group button { background: none; border: 1px solid rgba(255,255,255,0.2); color: #94a3b8; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem; }
-  .filter-group button.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: bold; }
   
   /* Tag Capsules */
   .tag { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; }

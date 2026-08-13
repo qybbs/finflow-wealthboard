@@ -188,14 +188,7 @@ func (sm *StorageManager) DeleteTransaction(id string) error {
 	return err
 }
 
-func (sm *StorageManager) BackupAllFiles() error {
-	// For Postgres, we might use pg_dump or simply rely on database backups.
-	// We'll log it as implemented by external tools for Postgres, or run pg_dump.
-	// Since the DB connection string is needed for pg_dump, we assume it's configured in ENV.
-	// To keep it simple and safe, we can just return nil here since PostgreSQL 
-	// typically has its own backup mechanisms, or implement a basic exec.Command("pg_dump", ...)
-	return nil
-}
+
 
 type PortfolioTransactionReq struct {
 	ID            string  `json:"id"`
@@ -208,6 +201,22 @@ type PortfolioTransactionReq struct {
 	PricePerUnit  float64 `json:"price_per_unit"`
 	Fee           float64 `json:"fee"`
 	Method        string  `json:"method"`
+}
+
+func (sm *StorageManager) GetAssetByID(id string) (*Asset, error) {
+	var asset Asset
+	err := sm.DB.QueryRow(`SELECT id, type, code, quantity, price_per_unit, average_price, current_price FROM assets WHERE id = $1`, id).
+		Scan(&asset.ID, &asset.Type, &asset.Code, &asset.Quantity, &asset.PricePerUnit, &asset.AveragePrice, &asset.CurrentPrice)
+	if err != nil {
+		return nil, err
+	}
+	// Calculate totals
+	asset.TotalValue = asset.Quantity * asset.CurrentPrice
+	asset.ProfitLoss = asset.TotalValue - (asset.AveragePrice * asset.Quantity)
+	if asset.AveragePrice > 0 && asset.Quantity > 0 {
+		asset.ProfitLossPct = (asset.ProfitLoss / (asset.AveragePrice * asset.Quantity)) * 100
+	}
+	return &asset, nil
 }
 
 func (sm *StorageManager) AddPortfolioTransaction(req PortfolioTransactionReq) error {
@@ -296,6 +305,6 @@ func (sm *StorageManager) AddPortfolioTransaction(req PortfolioTransactionReq) e
 }
 
 func (sm *StorageManager) UpdateAssetPrice(assetID string, price float64) error {
-	_, err := sm.DB.Exec(`UPDATE assets SET current_price = $1, price_per_unit = $1 WHERE id = $2`, price, assetID)
+	_, err := sm.DB.Exec(`UPDATE assets SET current_price = $1 WHERE id = $2`, price, assetID)
 	return err
 }
