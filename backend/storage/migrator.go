@@ -25,18 +25,25 @@ func LoadTransactions(filepath string) ([]Transaction, error) {
 	}
 
 	var transactions []Transaction
-	for _, record := range records {
-		amount, _ := strconv.ParseFloat(record[4], 64)
-		tx := Transaction{
-			ID:		record[0],
-			Date:	record[1],
-			Type: record[2],
-			Category: record[3],
-			Amount: amount,
-			Description: record[5],
-			Method: record[6],
+	for i, record := range records {
+		if len(record) < 7 {
+			log.Printf("LoadTransactions: skipping malformed row %d (expected 7 columns, got %d)", i+2, len(record))
+			continue
 		}
-		transactions = append(transactions, tx)
+		amount, err := strconv.ParseFloat(record[4], 64)
+		if err != nil {
+			log.Printf("LoadTransactions: skipping row %d: invalid amount %q: %v", i+2, record[4], err)
+			continue
+		}
+		transactions = append(transactions, Transaction{
+			ID:          record[0],
+			Date:        record[1],
+			Type:        record[2],
+			Category:    record[3],
+			Amount:      amount,
+			Description: record[5],
+			Method:      record[6],
+		})
 	}
 
 	return transactions, nil

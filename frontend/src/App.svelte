@@ -99,7 +99,7 @@
   function toggleTheme() {
     currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', currentTheme);
-    localStorage.setItem('theme', currentTheme);
+    try { localStorage.setItem('theme', currentTheme); } catch (e) { console.warn('Unable to persist theme preference', e); }
   }
 
   // --- FETCHING ---
@@ -612,7 +612,7 @@
            <!-- 1. Chart Overview -->
            <div class="row-charts">
                <div class="card glass-panel chart-50">
-                   <h2 style="display: flex; align-items: center; gap: 8px;"><TrendingUp size={20} /> Savings Trend (2026)</h2>
+                   <h2 style="display: flex; align-items: center; gap: 8px;"><TrendingUp size={20} /> Savings Trend ({new Date().getFullYear()})</h2>
                    <canvas bind:this={cfSavingsCanvas}></canvas>
                </div>
                <div class="card glass-panel chart-25 center-content">
@@ -691,7 +691,7 @@
                                        <button class="btn-danger btn-small" style="padding: 2px 6px; font-size: 11px;" on:click={() => confirmDeleteTransaction(tx.id)}>Ya</button>
                                        <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: var(--radius-sm); cursor: pointer;" on:click={cancelDelete}>Batal</button>
                                    {:else}
-                                       <button class="btn-danger btn-small" style="display: flex; align-items: center; justify-content: center; padding: 4px;" on:click={() => askDeleteTransaction(tx.id)} title="Hapus"><Trash2 size={14} /></button>
+                                        <button class="btn-danger btn-small" style="display: flex; align-items: center; justify-content: center; padding: 4px;" on:click={() => askDeleteTransaction(tx.id)} title="Hapus" aria-label="Hapus transaksi"><Trash2 size={14} /></button>
                                    {/if}
                                </td>
                            </tr>
@@ -926,7 +926,7 @@
                    <h2>Heading 2 (h2)</h2>
                    <h3>Heading 3 (h3)</h3>
                    <h4>Heading 4 (h4) - Subtitle</h4>
-                   <p>This is standard body text. It uses the <span class="text-mono">Inter</span> font.</p>
+                   <p>This is standard body text. It uses the Inter font. Monospace text uses <span class="text-mono">JetBrains Mono</span>.</p>
                    <p class="text-secondary">This is secondary text, typically used for descriptions.</p>
                    <p class="text-muted">This is muted text, used for disabled or background info.</p>
                </div>

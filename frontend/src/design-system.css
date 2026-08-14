@@ -5,8 +5,7 @@
 :root {
   /* Font Family & Typography Tokens */
   --font-sans: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   /* Spacing Tokens */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
