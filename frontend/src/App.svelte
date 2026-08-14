@@ -1,11 +1,28 @@
 <script>
   import { onMount, tick } from 'svelte';
   import Chart from 'chart.js/auto';
+  import { 
+      LayoutDashboard, 
+      ArrowLeftRight, 
+      Briefcase, 
+      Palette, 
+      Sun, 
+      Moon, 
+      TrendingUp, 
+      TrendingDown, 
+      AlertTriangle, 
+      Trash2, 
+      Plus, 
+      Edit2,
+      Check,
+      X,
+      Lightbulb,
+      FileText
+  } from 'lucide-svelte';
 
   // --- STATE ---
   let activeTab = 'dashboard';
-  let activeFilter = 'ALL';
-  
+  let currentTheme = 'dark';
   let expenses = [];
   let incomes = [];
   let portfolioData = null;
@@ -15,11 +32,7 @@
   // Charts
   let portfolioCanvas;
   let portfolioChart = null;
-  let savingsCanvas;
-  let savingsChart = null;
-  let incDonutCanvas;
-  let incDonutChart = null;
-  let expDonutCanvas;
+
   let analyticsData = {};
   
   // Edit State
@@ -37,7 +50,7 @@
       method: '', category: '', type: 'EXPENSE', amount: '', description: ''
   };
 
-  let expDonutChart = null;
+
 
   // Cashflow Charts
   let cfSavingsCanvas;
@@ -54,12 +67,7 @@
       return categoryColors[hash % categoryColors.length];
   }
   
-  // Forms
-  let txType = 'EXPENSE';
-  let txCategory = '';
-  let txAmount = '';
-  let txMethod = '';
-  let txDate = new Date().toISOString().split('T')[0];
+
   
   // Portfolio Form State
   let portTxType = 'BUY';
@@ -78,15 +86,21 @@
 
   // Derived
   $: uniqueMethods = accountsData.map(a => a.name);
-  $: totalPortfolioValue = portfolioData?.assets ? portfolioData.assets.reduce((sum, a) => sum + a.total_value, 0) : 0;
   $: totalFloatingPnL = portfolioData?.assets ? portfolioData.assets.reduce((sum, a) => sum + a.profit_loss, 0) : 0;
   
   let monthlyData = Array.from({length: 12}, (_, i) => ({ month: i+1, income: 0, expense: 0, net: 0 }));
 
   // --- LIFECYCLE ---
   onMount(async () => {
+    currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
     await fetchAllData();
   });
+
+  function toggleTheme() {
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    try { localStorage.setItem('theme', currentTheme); } catch (e) { console.warn('Unable to persist theme preference', e); }
+  }
 
   // --- FETCHING ---
   async function fetchAllData() {
@@ -95,35 +109,40 @@
         fetchIncomes(),
         fetchPortfolio(),
         fetchAccounts(),
-        fetchBudgets()
+        fetchBudgets(),
+        fetchAnalytics()
     ]);
     calculateMonthlyData();
-    if (activeTab === 'dashboard') {
-        setTimeout(renderDashboardCharts, 100);
-    } else if (activeTab === 'cashflow') {
+    if (activeTab === 'cashflow') {
         setTimeout(renderCashflowCharts, 100);
     } else if (activeTab === 'portfolio') {
         setTimeout(renderPortfolioChart, 100);
     }
   }
 
-  async function fetchExpenses() { const res = await fetch('/api/expenses'); expenses = await res.json() || []; }
-  async function fetchIncomes() { const res = await fetch('/api/incomes'); incomes = await res.json() || []; }
-  async function fetchPortfolio() { const res = await fetch('/api/portfolio'); portfolioData = await res.json(); }
-  async function fetchAccounts() { const res = await fetch('/api/accounts'); accountsData = await res.json() || []; }
-  async function fetchBudgets() { const res = await fetch('/api/budgets'); budgetsData = await res.json() || []; }
+  async function fetchExpenses() { try { const res = await fetch('/api/expenses'); if (res.ok) expenses = await res.json() || []; } catch(e) { console.error('fetchExpenses:', e); } }
+  async function fetchIncomes() { try { const res = await fetch('/api/incomes'); if (res.ok) incomes = await res.json() || []; } catch(e) { console.error('fetchIncomes:', e); } }
+  async function fetchPortfolio() { try { const res = await fetch('/api/portfolio'); if (res.ok) portfolioData = await res.json(); } catch(e) { console.error('fetchPortfolio:', e); } }
+  async function fetchAccounts() { try { const res = await fetch('/api/accounts'); if (res.ok) accountsData = await res.json() || []; } catch(e) { console.error('fetchAccounts:', e); } }
+  async function fetchBudgets() { try { const res = await fetch('/api/budgets'); if (res.ok) budgetsData = await res.json() || []; } catch(e) { console.error('fetchBudgets:', e); } }
+  async function fetchAnalytics() { try { const res = await fetch('/api/analytics'); if (res.ok) analyticsData = await res.json(); } catch(e) { console.error('fetchAnalytics:', e); } }
 
   function calculateMonthlyData() {
+      const currentYear = new Date().getFullYear();
       // Reset
       monthlyData = Array.from({length: 12}, (_, i) => ({ month: i+1, income: 0, expense: 0, net: 0 }));
       
       incomes.forEach(inc => {
-          const m = parseInt(inc.date.split('-')[1]);
-          if(m >= 1 && m <= 12) monthlyData[m-1].income += inc.amount;
+          const parts = inc.date.split('-');
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]);
+          if(y === currentYear && m >= 1 && m <= 12) monthlyData[m-1].income += inc.amount;
       });
       expenses.forEach(exp => {
-          const m = parseInt(exp.date.split('-')[1]);
-          if(m >= 1 && m <= 12) monthlyData[m-1].expense += exp.amount;
+          const parts = exp.date.split('-');
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]);
+          if(y === currentYear && m >= 1 && m <= 12) monthlyData[m-1].expense += exp.amount;
       });
       monthlyData.forEach(d => d.net = d.income - d.expense);
   }
@@ -209,30 +228,6 @@
   }
 
   // --- ACTIONS ---
-  async function submitTransaction() {
-    if (!txCategory || !txAmount || !txMethod) return;
-    const newTx = {
-      id: "tx_" + Date.now(),
-      date: txDate,
-      type: txType,
-      category: txCategory,
-      amount: parseFloat(txAmount),
-      description: "",
-      method: txMethod.toUpperCase()
-    };
-    try {
-      const endpoint = txType === 'INCOME' ? '/api/incomes/add' : '/api/expenses/add';
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTx)
-      });
-      if (res.ok) {
-        txCategory = ''; txAmount = ''; txMethod = '';
-        await fetchAllData(); // Refresh all
-      }
-    } catch (err) {}
-  }
 
   // Inline Editing Functions
   function enterEditMode(tx, field) {
@@ -404,17 +399,13 @@
     } catch (err) {}
   }
 
-  function handleKeydown(event) {
-    if (event.key === 'Enter') submitTransaction();
-  }
+
 
   // --- CHARTS ---
   async function setTab(tab) {
       activeTab = tab;
       await tick();
-      if (tab === 'dashboard') {
-          renderDashboardCharts();
-      } else if (tab === 'cashflow') {
+      if (tab === 'cashflow') {
           renderCashflowCharts();
       } else if (tab === 'portfolio') {
           renderPortfolioChart();
@@ -478,96 +469,41 @@
     });
   }
 
-  function renderDashboardCharts() {
-      if(!savingsCanvas || !incDonutCanvas || !expDonutCanvas) return;
 
-      if(savingsChart) savingsChart.destroy();
-      savingsChart = new Chart(savingsCanvas, {
-          type: 'line',
-          data: {
-              labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-              datasets: [{
-                  label: 'Net Savings (Rp)',
-                  data: monthlyData.map(d => d.net),
-                  borderColor: '#38bdf8',
-                  backgroundColor: 'rgba(56, 189, 248, 0.2)',
-                  fill: true,
-                  tension: 0.4
-              }]
-          },
-          options: {
-              plugins: { legend: { labels: { color: 'white' } } },
-              scales: {
-                  x: { ticks: { color: '#94a3b8' } },
-                  y: { ticks: { color: '#94a3b8' } }
-              }
-          }
-      });
-
-      // Income Donut Grouped
-      let incMap = {};
-      incomes.forEach(i => incMap[i.category] = (incMap[i.category] || 0) + i.amount);
-      if(incDonutChart) incDonutChart.destroy();
-      incDonutChart = new Chart(incDonutCanvas, {
-          type: 'doughnut',
-          data: {
-              labels: Object.keys(incMap).length > 0 ? Object.keys(incMap) : ['No Data'],
-              datasets: [{
-                  data: Object.keys(incMap).length > 0 ? Object.values(incMap) : [1],
-                  backgroundColor: ['#34d399', '#10b981', '#059669'], borderWidth: 0
-              }]
-          },
-          options: { plugins: { legend: { display: false } }, cutout: '70%' }
-      });
-
-      // Expense Donut Grouped
-      let expMap = {};
-      expenses.forEach(e => expMap[e.category] = (expMap[e.category] || 0) + e.amount);
-      if(expDonutChart) expDonutChart.destroy();
-      expDonutChart = new Chart(expDonutCanvas, {
-          type: 'doughnut',
-          data: {
-              labels: Object.keys(expMap).length > 0 ? Object.keys(expMap) : ['No Data'],
-              datasets: [{
-                  data: Object.keys(expMap).length > 0 ? Object.values(expMap) : [1],
-                  backgroundColor: ['#f87171', '#ef4444', '#dc2626', '#b91c1c'], borderWidth: 0
-              }]
-          },
-          options: { plugins: { legend: { display: false } }, cutout: '70%' }
-      });
-  }
   
   // Helpers
-  $: filteredExpenses = expenses.filter(tx => {
-      if(activeFilter === 'ALL') return true;
-      const m = parseInt(tx.date.split('-')[1]);
-      if(activeFilter === 'Q1') return m >= 1 && m <= 3;
-      if(activeFilter === 'Q2') return m >= 4 && m <= 6;
-      if(activeFilter === 'Q3') return m >= 7 && m <= 9;
-      if(activeFilter === 'Q4') return m >= 10 && m <= 12;
-      return true;
-  });
+
 </script>
 
 <div class="app-layout">
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <h1 class="logo">💎 FinFlow</h1>
+      <h1 class="logo" style="display: flex; align-items: center; gap: 8px;"><LayoutDashboard size={24} color="var(--brand-primary)" /> FinFlow</h1>
     </div>
     <div class="sidebar-menu">
       <button class:active={activeTab === 'dashboard'} on:click={() => setTab('dashboard')}>
-          <span class="icon">📊</span> Dashboard
+          <span class="icon" style="display: flex;"><LayoutDashboard size={18} /></span> Dashboard
       </button>
       <button class:active={activeTab === 'cashflow'} on:click={() => setTab('cashflow')}>
-          <span class="icon">💸</span> Cashflow
+          <span class="icon" style="display: flex;"><ArrowLeftRight size={18} /></span> Cashflow
       </button>
       <button class:active={activeTab === 'portfolio'} on:click={() => setTab('portfolio')}>
-          <span class="icon">💼</span> Portfolio
+          <span class="icon" style="display: flex;"><Briefcase size={18} /></span> Portfolio
+      </button>
+      <button class:active={activeTab === 'design-system'} on:click={() => setTab('design-system')}>
+          <span class="icon" style="display: flex;"><Palette size={18} /></span> Design System
       </button>
     </div>
     <div class="sidebar-footer">
-      <span class="version">v1.0</span>
+      <button class="theme-btn" on:click={toggleTheme} style="background:transparent; border:1px solid var(--border-color); color:var(--text-secondary); width:100%; text-align:left; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:12px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+          {#if currentTheme === 'dark'}
+              <span class="icon" style="display: flex;"><Sun size={16} /></span> Light Mode
+          {:else}
+              <span class="icon" style="display: flex;"><Moon size={16} /></span> Dark Mode
+          {/if}
+      </button>
+      <span class="version" style="display:block; text-align:center;">v1.0</span>
     </div>
   </aside>
 
@@ -579,7 +515,7 @@
         {activeTab === 'dashboard' ? 'Dashboard Overview' : activeTab === 'cashflow' ? 'Cashflow Management' : 'Portfolio Tracking'}
       </div>
       <div class="nav-stats">
-        <span class="stat-badge"><span class="icon">💼</span> Kekayaan Bersih: Rp {netWorth.toLocaleString('id-ID')}</span>
+        <span class="stat-badge" style="display: inline-flex; align-items: center; gap: 6px;"><Briefcase size={16} /> Kekayaan Bersih: Rp {netWorth.toLocaleString('id-ID')}</span>
       </div>
     </nav>
 
@@ -599,20 +535,51 @@
                  </div>
                  <div class="card glass-panel stat-card">
                      <h4>Sisa (Net) Bulan Ini</h4>
-                     <div class="value" style="color: {currentMonthSummary.net >= 0 ? '#34d399' : '#f87171'}">Rp {currentMonthSummary.net.toLocaleString('id-ID')}</div>
+                     <div class="value" style="color: {currentMonthSummary.net >= 0 ? 'var(--color-green)' : 'var(--color-red)'}">Rp {currentMonthSummary.net.toLocaleString('id-ID')}</div>
+                 </div>
+             </div>
+
+             <!-- Financial Health Analytics -->
+             <div class="row" style="margin-top: 20px;">
+                 <div class="card glass-panel flex-1">
+                     <h2 style="display: flex; align-items: center; gap: 8px;"><LayoutDashboard size={20} /> Financial Health</h2>
+                     <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                         <div>
+                             <div class="flex-between">
+                                 <span>Savings Rate</span>
+                                 <span style="font-weight: bold; color: {analyticsData.savings_rate >= 20 ? 'var(--color-green)' : 'var(--color-yellow)'};">
+                                     {analyticsData.savings_rate ? analyticsData.savings_rate.toFixed(1) : 0}%
+                                 </span>
+                             </div>
+                             <div style="font-size: 0.8rem; color: var(--text-secondary);">Target: > 20%</div>
+                         </div>
+                         <div>
+                             <div class="flex-between">
+                                 <span>Emergency Fund</span>
+                                 <span style="font-weight: bold; color: {analyticsData.emergency_run_rate >= 6 ? 'var(--color-green)' : 'var(--color-red)'};">
+                                     {analyticsData.emergency_run_rate ? analyticsData.emergency_run_rate.toFixed(1) : 0} bulan
+                                 </span>
+                             </div>
+                             <div style="font-size: 0.8rem; color: var(--text-secondary);">Target: > 6 bulan pengeluaran</div>
+                         </div>
+                         <div style="margin-top: 10px; padding: 10px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid var(--brand-primary); font-size: 0.9rem; display: flex; align-items: flex-start; gap: 8px;">
+                             <Lightbulb size={18} style="flex-shrink: 0; margin-top: 2px;" /> 
+                             <span>{analyticsData.recommendation || 'Data belum tersedia'}</span>
+                         </div>
+                     </div>
                  </div>
              </div>
 
              <!-- Row 2: Alerts and Recent Transactions -->
              <div class="row" style="margin-top: 20px; align-items: flex-start;">
                  <div class="card glass-panel flex-1">
-                     <h2>🚨 Budget Alerts</h2>
+                     <h2 style="display: flex; align-items: center; gap: 8px;"><AlertTriangle size={20} /> Budget Alerts</h2>
                      {#if budgetAlerts.length > 0}
                          <ul class="alert-list" style="margin-top:15px; padding-left:0; list-style:none;">
                              {#each budgetAlerts as alert}
-                             <li style="margin-bottom: 12px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px;">
+                             <li style="margin-bottom: 12px; display:flex; justify-content:space-between; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
                                  <span class="category">{alert.category}</span>
-                                 <span class="progress-text" style="color: { (alert.spent/alert.limit) > 0.9 ? '#ef4444' : '#facc15' }; font-weight:600;">{Math.round((alert.spent/alert.limit)*100)}% terpakai</span>
+                                 <span class="progress-text" style="color: { (alert.spent/alert.limit) > 0.9 ? 'var(--color-red)' : 'var(--color-yellow)' }; font-weight:600;">{Math.round((alert.spent/alert.limit)*100)}% terpakai</span>
                              </li>
                              {/each}
                          </ul>
@@ -629,7 +596,7 @@
                              <tr>
                                  <td style="width: 120px;">{formatDate(tx.date)}</td>
                                  <td>{tx.description} <span class="tag tag-{getMethodColor(tx.method)}" style="margin-left: 8px;">{tx.method}</span></td>
-                                 <td style="width: 150px; text-align: right; color: {tx.type === 'INCOME' ? '#34d399' : '#f87171'}; font-weight: 500;">
+                                 <td style="width: 150px; text-align: right; color: {tx.type === 'INCOME' ? 'var(--color-green)' : 'var(--color-red)'}; font-weight: 500;">
                                      {tx.type === 'INCOME' ? '+' : '-'} Rp {tx.amount.toLocaleString('id-ID')}
                                  </td>
                              </tr>
@@ -645,29 +612,29 @@
            <!-- 1. Chart Overview -->
            <div class="row-charts">
                <div class="card glass-panel chart-50">
-                   <h2>Savings Trend (2026)</h2>
+                   <h2 style="display: flex; align-items: center; gap: 8px;"><TrendingUp size={20} /> Savings Trend ({new Date().getFullYear()})</h2>
                    <canvas bind:this={cfSavingsCanvas}></canvas>
                </div>
                <div class="card glass-panel chart-25 center-content">
-                   <h2>Income Breakdown</h2>
+                   <h2 style="display: flex; align-items: center; gap: 8px;"><TrendingUp size={20} /> Income Breakdown</h2>
                    <div class="donut-wrapper"><canvas bind:this={cfIncDonutCanvas}></canvas></div>
                </div>
                <div class="card glass-panel chart-25 center-content">
-                   <h2>Expense Breakdown</h2>
+                   <h2 style="display: flex; align-items: center; gap: 8px;"><TrendingDown size={20} /> Expense Breakdown</h2>
                    <div class="donut-wrapper"><canvas bind:this={cfExpDonutCanvas}></canvas></div>
                </div>
            </div>
 
            <!-- 2. Total Saving -->
            <div class="card glass-panel" style="margin-top: 20px;">
-               <h2>Total Saving (Monthly)</h2>
+               <h2 style="display: flex; align-items: center; gap: 8px;"><ArrowLeftRight size={20} /> Total Saving (Monthly)</h2>
                <div class="grid-12" style="margin-top: 15px;">
                    {#each monthlyData as data}
                    <div class="month-card glass-panel">
                        <h4>Bulan {data.month}</h4>
                        <div class="stat"><span class="text-green">In:</span> Rp {data.income.toLocaleString('id-ID')}</div>
                        <div class="stat"><span class="text-red">Out:</span> Rp {data.expense.toLocaleString('id-ID')}</div>
-                       <div class="stat-net" style="color: {data.net >= 0 ? '#34d399' : '#f87171'}">
+                       <div class="stat-net" style="color: {data.net >= 0 ? 'var(--color-green)' : 'var(--color-red)'}">
                            Net: Rp {data.net.toLocaleString('id-ID')}
                        </div>
                    </div>
@@ -712,7 +679,7 @@
                                        <span class="tag tag-{getMethodColor(tx.method)}">{tx.method}</span>
                                    {/if}
                                </td>
-                               <td class="amount" style="cursor: pointer; color: #34d399; width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
+                               <td class="amount" style="cursor: pointer; color: var(--color-green); width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
                                    {#if editingTxId === tx.id && editingField === 'amount'}
                                        <input type="number" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
                                    {:else}
@@ -722,9 +689,9 @@
                                <td style="text-align: right; display: flex; gap: 4px; justify-content: flex-end; width: max-content;">
                                    {#if deleteConfirmTxId === tx.id}
                                        <button class="btn-danger btn-small" style="padding: 2px 6px; font-size: 11px;" on:click={() => confirmDeleteTransaction(tx.id)}>Ya</button>
-                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 4px; cursor: pointer;" on:click={cancelDelete}>Batal</button>
+                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: var(--radius-sm); cursor: pointer;" on:click={cancelDelete}>Batal</button>
                                    {:else}
-                                       <button class="btn-danger btn-small" on:click={() => askDeleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                                        <button class="btn-danger btn-small" style="display: flex; align-items: center; justify-content: center; padding: 4px;" on:click={() => askDeleteTransaction(tx.id)} title="Hapus" aria-label="Hapus transaksi"><Trash2 size={14} /></button>
                                    {/if}
                                </td>
                            </tr>
@@ -787,7 +754,7 @@
                                        <span class="tag tag-{getMethodColor(tx.method)}">{tx.method}</span>
                                    {/if}
                                </td>
-                               <td class="amount" style="cursor: pointer; color: #f87171; width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
+                               <td class="amount" style="cursor: pointer; color: var(--color-red); width: 150px;" on:click={() => enterEditMode(tx, 'amount')}>
                                    {#if editingTxId === tx.id && editingField === 'amount'}
                                        <input type="number" bind:value={editingValue} on:blur={() => saveEdit(tx)} on:keydown={(e) => handleEditKeydown(e, tx)} autofocus />
                                    {:else}
@@ -797,9 +764,9 @@
                                <td style="text-align: right; display: flex; gap: 4px; justify-content: flex-end; width: max-content;">
                                    {#if deleteConfirmTxId === tx.id}
                                        <button class="btn-danger btn-small" style="padding: 2px 6px; font-size: 11px;" on:click={() => confirmDeleteTransaction(tx.id)}>Ya</button>
-                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: rgba(255,255,255,0.1); color: white; border: none; border-radius: 4px; cursor: pointer;" on:click={cancelDelete}>Batal</button>
+                                       <button class="btn-secondary btn-small" style="padding: 2px 6px; font-size: 11px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: var(--radius-sm); cursor: pointer;" on:click={cancelDelete}>Batal</button>
                                    {:else}
-                                       <button class="btn-danger btn-small" on:click={() => askDeleteTransaction(tx.id)} title="Hapus">🗑️</button>
+                                       <button class="btn-danger btn-small" style="display: flex; align-items: center; justify-content: center; padding: 4px;" on:click={() => askDeleteTransaction(tx.id)} title="Hapus"><Trash2 size={14} /></button>
                                    {/if}
                                </td>
                            </tr>
@@ -838,10 +805,10 @@
                                <td class="amount">Rp {b.remaining.toLocaleString('id-ID')}</td>
                                <td style="width: 150px;">
                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                       <div class="budget-bar-bg" style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; flex: 1;">
-                                           <div class="budget-bar-fill" style="width: {Math.min((b.spent/b.limit)*100, 100)}%; height: 100%; background: {(b.spent/b.limit) > 0.9 ? '#ef4444' : (b.spent/b.limit) > 0.7 ? '#facc15' : '#10b981'};"></div>
+                                       <div class="budget-bar-bg" style="width: 100%; height: 8px; background: var(--border-color); border-radius: var(--radius-pill); overflow: hidden; flex: 1;">
+                                           <div class="budget-bar-fill" style="width: {Math.min((b.spent/b.limit)*100, 100)}%; height: 100%; background: {(b.spent/b.limit) > 0.9 ? 'var(--color-red)' : (b.spent/b.limit) > 0.7 ? 'var(--color-yellow)' : 'var(--color-green)'};"></div>
                                        </div>
-                                       <span style="font-size: 0.8rem; color: #94a3b8; width: 35px; text-align: right;">{Math.round((b.spent/b.limit)*100)}%</span>
+                                       <span style="font-size: 0.8rem; color: var(--text-secondary); width: 35px; text-align: right;">{Math.round((b.spent/b.limit)*100)}%</span>
                                    </div>
                                </td>
                            </tr>
@@ -911,14 +878,18 @@
                          {#each portfolioData.assets as asset}
                          <tr>
                              <td>
-                                {asset.code}
-                                {#if asset.profit_loss_pct <= -10} <span title="Alert!" style="color: #fbbf24;">⚠️</span> {/if}
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    {asset.code}
+                                    {#if asset.profit_loss_pct <= -10} <span title="Alert!" style="color: var(--color-yellow); display: flex;"><AlertTriangle size={14} /></span> {/if}
+                                </div>
                              </td>
                              <td>
-                                {asset.type}
-                                {#if asset.type === 'REKSA_DANA'}
-                                   <button class="btn-small" style="margin-left: 5px; padding: 2px 5px;" on:click={() => updateNAV(asset.id, asset.current_price)}>✏️</button>
-                                {/if}
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    {asset.type}
+                                    {#if asset.type === 'REKSA_DANA'}
+                                       <button class="btn-small" style="padding: 2px 5px; display: flex; align-items: center; justify-content: center;" on:click={() => updateNAV(asset.id, asset.current_price)}><Edit2 size={12} /></button>
+                                    {/if}
+                                </div>
                              </td>
                              <td>{asset.quantity}</td>
                              <td>Rp {asset.current_price.toLocaleString('id-ID')}</td>
@@ -931,42 +902,84 @@
              </table>
            </div>
        </div>
+    {:else if activeTab === 'design-system'}
+       <div class="content-container fade-in">
+           <h2 style="display: flex; align-items: center; gap: 8px;"><Palette size={24} /> Design System Preview</h2>
+           <p class="text-secondary" style="margin-bottom:20px;">Pratinjau komponen-komponen UI yang diatur menggunakan Design System terpusat.</p>
+
+           <div class="vertical-stack">
+               <div class="glass-panel">
+                   <h3 style="display: flex; align-items: center; gap: 8px;"><Palette size={20} /> Color Palette & Status Tags</h3>
+                   <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:15px;">
+                       <span class="tag tag-default">Default</span>
+                       <span class="tag tag-blue">Primary Blue</span>
+                       <span class="tag tag-green">Success Green</span>
+                       <span class="tag tag-yellow">Warning Yellow</span>
+                       <span class="tag tag-red">Danger Red</span>
+                       <span class="tag tag-purple">Purple</span>
+                   </div>
+               </div>
+
+               <div class="glass-panel">
+                   <h3 style="display: flex; align-items: center; gap: 8px;"><FileText size={20} /> Typography</h3>
+                   <h1>Heading 1 (h1)</h1>
+                   <h2>Heading 2 (h2)</h2>
+                   <h3>Heading 3 (h3)</h3>
+                   <h4>Heading 4 (h4) - Subtitle</h4>
+                   <p>This is standard body text. It uses the Inter font. Monospace text uses <span class="text-mono">JetBrains Mono</span>.</p>
+                   <p class="text-secondary">This is secondary text, typically used for descriptions.</p>
+                   <p class="text-muted">This is muted text, used for disabled or background info.</p>
+               </div>
+
+               <div class="glass-panel">
+                   <h3 style="display: flex; align-items: center; gap: 8px;"><Plus size={20} /> Interactive Components</h3>
+                   <div style="display:flex; gap:15px; margin-top:15px; align-items:center;">
+                       <button class="btn-primary">Primary Button</button>
+                       <button class="btn-primary" disabled>Disabled</button>
+                       <button class="btn-small">Small Outline</button>
+                   </div>
+                   <div style="margin-top: 20px; max-width: 300px;">
+                       <label style="display:block; margin-bottom:5px; font-size:0.9rem;" class="text-secondary">Example Input</label>
+                       <input type="text" placeholder="Type something..." />
+                   </div>
+               </div>
+               
+               <div class="glass-panel" style="background: var(--brand-light); border-color: var(--brand-active);">
+                   <h3 class="text-blue" style="display: flex; align-items: center; gap: 8px;"><Sun size={20} /> Glassmorphism Showcase</h3>
+                   <p>This panel uses a tinted glassmorphism effect using CSS backdrop-filter.</p>
+               </div>
+           </div>
+       </div>
     {/if}
     </main>
   </div>
 </div>
 
 <style>
-  :global(body) { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
-  h1, h2, h3, h4 { margin-top: 0; }
-  h2 { font-size: 1.1rem; color: #e2e8f0; font-weight: 600; }
-  
-  /* Layout */
-  .app-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-  .sidebar { width: 250px; background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; padding: 20px; z-index: 10; box-sizing: border-box; }
+  /* Layout Scope */
+  .sidebar { width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: var(--spacing-lg); z-index: 10; box-sizing: border-box; }
   .sidebar-header { margin-bottom: 30px; }
-  .sidebar-header .logo { font-size: 1.5rem; text-align: left; margin: 0; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .sidebar-header .logo { font-size: 1.5rem; text-align: left; margin: 0; background: linear-gradient(to right, var(--brand-primary), var(--color-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   
   .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-  .sidebar-menu button { display: flex; align-items: center; gap: 12px; background: transparent; border: none; padding: 12px 16px; border-radius: 8px; color: #94a3b8; font-weight: 500; cursor: pointer; transition: 0.2s; font-size: 0.95rem; text-align: left; }
-  .sidebar-menu button:hover { background: rgba(255,255,255,0.03); color: #e2e8f0; }
-  .sidebar-menu button.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-weight: 600; }
+  .sidebar-menu button { display: flex; align-items: center; gap: 12px; background: transparent; border: none; padding: 12px 16px; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: 500; cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast); font-size: 0.95rem; text-align: left; }
+  .sidebar-menu button:hover { background: var(--border-color); color: var(--text-primary); }
+  .sidebar-menu button.active { background: var(--brand-light); color: var(--brand-primary); font-weight: 600; }
   .sidebar-menu button .icon { font-size: 1.1rem; }
   
-  .sidebar-footer { font-size: 0.8rem; color: #64748b; }
+  .sidebar-footer { font-size: 0.8rem; color: var(--text-muted); }
   
-  .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #0f172a; }
+  .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-primary); }
   
-  .navbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-bottom: 1px solid rgba(255,255,255,0.05); border-radius: 0; margin-bottom: 0; box-shadow: none; z-index: 5; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); }
-  .navbar .nav-title { font-size: 1.2rem; font-weight: 600; color: #e2e8f0; }
-  .navbar .nav-stats .stat-badge { background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); padding: 8px 16px; border-radius: 20px; font-weight: 600; color: #38bdf8; font-size: 0.9rem; }
+  .navbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-bottom: 1px solid var(--border-color); border-radius: 0; margin-bottom: 0; box-shadow: none; z-index: 5; background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .navbar .nav-title { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); }
+  .navbar .nav-stats .stat-badge { background: var(--brand-light); border: 1px solid var(--brand-active); padding: 8px 16px; border-radius: var(--radius-pill); font-weight: 600; color: var(--brand-primary); font-size: 0.9rem; }
   
   .content-container { flex: 1; overflow-y: auto; padding: 30px; }
   
   .dashboard-grid { display: flex; flex-direction: column; gap: 20px; }
   .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-  .stat-card h4 { margin: 0 0 10px 0; color: #94a3b8; font-size: 0.9rem; font-weight: 500; }
-  .stat-card .value { font-size: 1.5rem; font-weight: 700; }
+  .stat-card .value { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 
   .container { max-width: 1200px; margin: 0 auto; }
   .row { display: flex; gap: 20px; flex-wrap: wrap; }
@@ -974,11 +987,8 @@
   .flex-1 { flex: 1; } .flex-2 { flex: 2; }
   .flex-between { display: flex; justify-content: space-between; align-items: center; }
   
-  .glass-panel { background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-  
   /* Utilities */
   .center-content { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .text-green { color: #34d399; } .text-red { color: #f87171; } .text-blue { color: #38bdf8; }
   .fade-in { animation: fadeIn 0.3s ease-in; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
   
@@ -989,18 +999,11 @@
   /* Grid 12 Months */
   .grid-12 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
   .month-card { padding: 15px; text-align: center; }
-  .month-card h4 { margin: 0 0 10px 0; color: #94a3b8; font-size: 0.9rem; }
+  .month-card h4 { margin: 0 0 10px 0; color: var(--text-secondary); font-size: 0.9rem; }
   .month-card .stat { font-size: 0.85rem; margin-bottom: 5px; }
-  .month-card .stat-net { margin-top: 10px; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px; }
+  .month-card .stat-net { margin-top: 10px; font-weight: bold; border-top: 1px solid var(--border-color); padding-top: 5px; }
   
-  /* Forms */
-  input, select { padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 0.9rem; width: 100%; box-sizing: border-box; }
-  input:focus, select:focus { outline: none; border-color: #38bdf8; }
   .form-row { display: flex; gap: 10px; margin-top: 15px; align-items: center; }
-  
-  .btn-primary { background: #38bdf8; color: #0f172a; font-weight: bold; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
-  .btn-primary:hover { background: #7dd3fc; }
-  .btn-small { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; border-radius: 4px; padding: 5px 10px; cursor: pointer; }
   
   /* Vertical Stack Layout */
   .vertical-stack { display: flex; flex-direction: column; gap: 20px; }
@@ -1009,42 +1012,21 @@
   .chart-25 { flex: 1; }
 
   /* Tables */
-  .minimal-table { width: 100%; border-collapse: collapse; }
-  .minimal-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .minimal-table .amount { text-align: right; font-weight: bold; }
-  
   .full-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  .full-table th, .full-table td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left; }
-  .full-table th { color: #94a3b8; font-weight: 500; }
-  .full-table .amount { text-align: right; font-family: monospace; font-size: 1rem; }
+  .full-table th, .full-table td { padding: 12px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
+  .full-table th { color: var(--text-secondary); font-weight: 500; }
   .table-container { max-height: 400px; overflow-y: auto; }
 
   /* Notion Style Table */
-  .notion-table-container { max-height: 500px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; }
+  .notion-table-container { max-height: 500px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); }
   .notion-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-  .notion-table th { background: rgba(255,255,255,0.02); color: #94a3b8; font-weight: 500; text-align: left; padding: 8px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.05); }
-  .notion-table td { padding: 6px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); border-right: 1px solid rgba(255, 255, 255, 0.02); }
+  .notion-table th { background: var(--bg-secondary); color: var(--text-secondary); font-weight: 500; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
+  .notion-table td { padding: 6px 12px; border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
   .notion-table td:last-child, .notion-table th:last-child { border-right: none; }
-  .notion-table .amount { font-family: monospace; font-size: 0.95rem; }
-  .notion-table .editable-row:hover { background: rgba(255,255,255,0.02); }
+  .notion-table .amount { font-family: var(--font-mono); font-size: 0.95rem; }
+  .notion-table .editable-row:hover { background: var(--bg-secondary); }
   .notion-table .editable-row input { border: none; background: transparent; padding: 0; margin: 0; color: inherit; font-size: inherit; font-family: inherit; width: 100%; box-sizing: border-box; }
-  .notion-table .editable-row input:focus { outline: none; border-bottom: 1px solid #38bdf8; }
-  .notion-new-row td { background: rgba(255,255,255,0.01); }
-  .notion-new-row input, .notion-new-row select { padding: 4px 8px; font-size: 0.85rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); width: 100%; box-sizing: border-box; }
-  
-  /* Filter */
-  .filter-group { display: flex; gap: 5px; }
-  .filter-group button { background: none; border: 1px solid rgba(255,255,255,0.2); color: #94a3b8; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem; }
-  .filter-group button.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: bold; }
-  
-  /* Tag Capsules */
-  .tag { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
-  .tag-default { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
-  .tag-blue { background: rgba(56, 189, 248, 0.2); color: #7dd3fc; }
-  .tag-green { background: rgba(52, 211, 153, 0.2); color: #6ee7b7; }
-  .tag-yellow { background: rgba(250, 204, 21, 0.2); color: #fde047; }
-  .tag-red { background: rgba(248, 113, 113, 0.2); color: #fca5a5; }
-  .tag-purple { background: rgba(192, 132, 252, 0.2); color: #d8b4fe; }
-  .tag-pink { background: rgba(244, 114, 182, 0.2); color: #f9a8d4; }
-  .tag-indigo { background: rgba(129, 140, 248, 0.2); color: #a5b4fc; }
+  .notion-table .editable-row input:focus { outline: none; border-bottom: 1px solid var(--brand-primary); }
+  .notion-new-row td { background: var(--bg-secondary); }
+  .notion-new-row input, .notion-new-row select { padding: 4px 8px; font-size: 0.85rem; background: transparent; border: 1px solid var(--border-color); width: 100%; box-sizing: border-box; }
 </style>

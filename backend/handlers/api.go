@@ -61,6 +61,15 @@ func (h *APIHandler) AddExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if newTx.Amount <= 0 {
+		http.Error(w, "Jumlah harus lebih besar dari 0", http.StatusBadRequest)
+		return
+	}
+	if newTx.Category == "" {
+		http.Error(w, "Kategori tidak boleh kosong", http.StatusBadRequest)
+		return
+	}
+
 	err = h.Store.AddExpense(newTx)
 	if err != nil {
 		http.Error(w, "Gagal menyimpan data", http.StatusInternalServerError)
@@ -268,6 +277,15 @@ func (h *APIHandler) AddIncome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if newTx.Amount <= 0 {
+		http.Error(w, "Jumlah harus lebih besar dari 0", http.StatusBadRequest)
+		return
+	}
+	if newTx.Category == "" {
+		http.Error(w, "Kategori tidak boleh kosong", http.StatusBadRequest)
+		return
+	}
+
 	err = h.Store.AddIncome(newTx)
 	if err != nil {
 		http.Error(w, "Gagal menyimpan data", http.StatusInternalServerError)
@@ -340,6 +358,27 @@ func (h *APIHandler) AddPortfolioTransaction(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		http.Error(w, "Data JSON tidak valid", http.StatusBadRequest)
 		return
+	}
+
+	if req.AssetID == "" || req.AssetCode == "" {
+		http.Error(w, "Asset ID dan Code tidak boleh kosong", http.StatusBadRequest)
+		return
+	}
+	if req.Quantity <= 0 {
+		http.Error(w, "Jumlah unit harus lebih dari 0", http.StatusBadRequest)
+		return
+	}
+
+	if req.Type == "SELL" {
+		asset, err := h.Store.GetAssetByID(req.AssetID)
+		if err != nil {
+			http.Error(w, "Gagal mendapatkan data aset atau aset tidak ditemukan", http.StatusBadRequest)
+			return
+		}
+		if req.Quantity > asset.Quantity {
+			http.Error(w, "Jumlah unit yang dijual melebihi jumlah unit yang dimiliki", http.StatusBadRequest)
+			return
+		}
 	}
 
 	err = h.Store.AddPortfolioTransaction(req)

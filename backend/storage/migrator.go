@@ -2,9 +2,80 @@ package storage
 
 import (
 	"database/sql"
+	"encoding/csv"
+	"encoding/json"
 	"log"
 	"os"
+	"strconv"
 )
+
+func LoadTransactions(filepath string) ([]Transaction, error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	_, _ = reader.Read() // skip header
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var transactions []Transaction
+	for i, record := range records {
+		if len(record) < 7 {
+			log.Printf("LoadTransactions: skipping malformed row %d (expected 7 columns, got %d)", i+2, len(record))
+			continue
+		}
+		amount, err := strconv.ParseFloat(record[4], 64)
+		if err != nil {
+			log.Printf("LoadTransactions: skipping row %d: invalid amount %q: %v", i+2, record[4], err)
+			continue
+		}
+		transactions = append(transactions, Transaction{
+			ID:          record[0],
+			Date:        record[1],
+			Type:        record[2],
+			Category:    record[3],
+			Amount:      amount,
+			Description: record[5],
+			Method:      record[6],
+		})
+	}
+
+	return transactions, nil
+}
+
+func LoadPortfolio(filepath string) (*Portfolio, error) {
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	var portfolio Portfolio
+	err = json.Unmarshal(data, &portfolio)
+	if err != nil {
+		return nil, err
+	}
+	return &portfolio, nil
+}
+
+func LoadBudgets(filepath string) ([]Budget, error) {
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	var budgets []Budget
+	err = json.Unmarshal(data, &budgets)
+	if err != nil {
+		return nil, err
+	}
+	return budgets, nil
+}
 
 func MigrateData(db *sql.DB, incomePath, expensePath, portfolioPath, budgetPath string) error {
 	migrated := false
